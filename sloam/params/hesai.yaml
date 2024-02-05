@@ -1,0 +1,6 @@
+sloam:
+  cloud_topic: /hesai/pandar #/os_cloud_node/cloud_undistort
+#  cloud_topic: /vilens/point_cloud_transformed_raw
+  odom_topic: /vilens/odometry_optimized #/quadrotor/vio/odom
+  debug_mode: false
+  do_destagger: true

@@ -28,6 +28,6 @@ sloam:
   odom_frame_id: quadrotor/odom
   robot_frame_id: quadrotor/base_link
   seg_model_path: /opt/sloam_ws/src/models/stable_bdarknet.onnx # path to segmentation model
-  seg_lidar_fov: 22.5 # lidar FOV
-  seg_lidar_w: 2048 # lidar width
+  seg_lidar_fov: 22.5 # lidar FOV ... hesai at VLP-16 are both +15, -16...why is this 22.5??
+  seg_lidar_w: 2048 # lidar width ... necessary for NN input tensor
   seg_lidar_h: 64 # lidar height

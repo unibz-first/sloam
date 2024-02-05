@@ -10,7 +10,6 @@
 #include <opencv2/imgproc.hpp>
 // #include <opencv2/dnn/dnn.hpp>
 // #include <opencv2/imgcodecs.hpp>
-// #include <opencv2/imgproc.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -52,21 +51,39 @@ struct Timer{
     }
 };
 
+// for OpenCV throughput of unstructured/incomplete Hesai Pointclouds
+struct HesaiImages {
+    cv::Mat range_;
+    cv::Mat intensity_;
+    cv::Mat range_precise_;
+    cv::Mat range_resized_;
+    cv::Mat range_resized_float_;
+    };
+
 class Segmentation {
  public:
     explicit Segmentation(const std::string modelFilePath,
-        const float fov_up, const float fov_down, const int img_w, const int img_h, const int img_d, bool do_destagger);
+        const float fov_up, const float fov_down, 
+        const int img_w, const int img_h, const int img_d, 
+        bool do_destagger, bool use_hesai);
+        if (use_hesai) {
+            do_destagger = false;
+            initializeImages();
+        }
+        }
 
     Segmentation(const Segmentation &) = delete;
     Segmentation operator=(const Segmentation &) = delete;
     using Ptr = boost::shared_ptr<Segmentation>;
     using ConstPtr = boost::shared_ptr<const Segmentation>;
 
+    void initializeImages();
     void runERF(cv::Mat& rImg, cv::Mat& maskImg);
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
     void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud, unsigned char val, bool dense = false);
     void speedTest(const Cloud::Ptr cloud, size_t numTests);
  private:
+    struct HesaiImages _hesaiImages; // _hesaiImages; better naming convention?
     std::vector<std::vector<float>> _doProjection(const std::vector<float>& scan, const uint32_t& num_points);
 
     void _argmax(const float *in, cv::Mat& maskImg);
@@ -102,6 +119,7 @@ class Segmentation {
     int _img_h;
     int _img_d;
     bool _do_destagger;
+    bool _use_hesai = true;
 };
 
 template <typename T>
