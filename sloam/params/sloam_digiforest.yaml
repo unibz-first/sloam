@@ -21,13 +21,19 @@ sloam:
   add_new_tree_thresh_dist: 1.5 # tree must be at least Xm away from other to be added to the semantic map
   rough_tree_match_thresh: 2.5 # rough match before computing the more costly cylinder to cylinder dist
   tree_match_thresh: 0.5 # dist threshold between point and model to use in pose estimation
-  odom_freq_filter: 25  # Add every x odom messages to the queue. Target same freq. as lidar.E.g., if odom = 120Hz % 20 = 6 
+  odom_freq_filter: 40  # VILENS odometry is 400 hz, lidar is 10 Hz
   min_odom_distance: 0.5
-  min_sloam_z: 0.5 # min height of robot for triggering sloam. If you get the error msg "Quad is too low, will not call sloam", reduce this param. 
-  map_frame_id: quadrotor/map
-  odom_frame_id: quadrotor/odom
-  robot_frame_id: quadrotor/base_link
-  seg_model_path: /opt/sloam_ws/src/models/stable_bdarknet.onnx # path to segmentation model
-  seg_lidar_fov: 22.5 # lidar FOV ... hesai at VLP-16 are both +15, -16...why is this 22.5??
-  seg_lidar_w: 2048 # lidar width ... necessary for NN input tensor
-  seg_lidar_h: 64 # lidar height
+  min_sloam_z: -500.0 # min height of robot for triggering sloam. If you get the error msg "Quad is too low, will not call sloam", reduce this param. 
+  map_frame_id: map 
+  odom_frame_id: odom_vilens
+  robot_frame_id: base
+  seg_model_path: $(env HOME)/sloam/models/stable_bdarknet.onnx # path to segmentation model
+  seg_lidar_fov: 31 # lidar FOV
+  seg_lidar_w: 2000 # lidar width
+  seg_lidar_h: 32 # lidar height
+  cloud_topic: /hesai/pandar
+  odom_topic: /vilens/odom
+  debug_mode: true
+  use_hesai: true
+  do_destagger: false
+  use_hesai: true

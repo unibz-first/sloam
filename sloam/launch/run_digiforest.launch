@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <rosparam file="$(find sloam)/params/sloam_digiforest.yaml" command="load" subst_value="true" />
+    <param name="/use_sim_time" value="true" />
+    <node name="vilens_state_to_odom" pkg="sloam" type="vilens_state_to_odometry.py" />
+    <include file="$(find frontier_v7_description)/launch/view_urdf.launch">
+      <arg name="rviz" value="false" />
+      <arg name="simulation" value="false" />
+    </include>
+
+    <include file="$(find sloam)/launch/sloam.launch"/>
+</launch>
