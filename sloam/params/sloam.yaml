@@ -27,7 +27,7 @@ sloam:
   map_frame_id: quadrotor/map
   odom_frame_id: quadrotor/odom
   robot_frame_id: quadrotor/base_link
-  seg_model_path: /opt/bags/inf/models/stable_bdarknet.onnx # path to segmentation model
+  seg_model_path: /home/mcamurri/git/sloam/models/stable_bdarknet.onnx # path to segmentation model
   seg_lidar_fov: 22.5 # lidar FOV
   seg_lidar_w: 2048 # lidar width
   seg_lidar_h: 64 # lidar height
