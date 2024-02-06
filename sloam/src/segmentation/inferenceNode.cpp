@@ -11,9 +11,6 @@
 #include <trellis.h>
 #include <serialization.h>
 
-using PointT = pcl::PointXYZI;
-using CloudT = pcl::PointCloud<PointT>;
-
 class SegNode
 {
 public:
@@ -21,7 +18,7 @@ public:
 
 private:
   void SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg);
-  Cloud::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
+  CloudT::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
   boost::shared_ptr<seg::Segmentation> segmentator_ = nullptr;
 
   ros::NodeHandle nh_;
@@ -74,7 +71,7 @@ SegNode::SegNode(const ros::NodeHandle &nh) : nh_(nh)
   graphDetector_.reset_tree_id();
 }
 
-Cloud::Ptr SegNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
+CloudT::Ptr SegNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
 {
   CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
   std::vector<float> color_values((int)landmarks.size());

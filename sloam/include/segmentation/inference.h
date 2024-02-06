@@ -8,9 +8,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-// #include <opencv2/dnn/dnn.hpp>
-// #include <opencv2/imgcodecs.hpp>
-
 #include <chrono>
 #include <cmath>
 #include <exception>
@@ -20,9 +17,10 @@
 #include <numeric>
 #include <string>
 #include <vector>
+#include "../helpers/hesai_point_types.h"
+#include "definitions.h"
 
-using Point = pcl::PointXYZI;
-using Cloud = pcl::PointCloud<Point>;
+
 
 namespace seg {
 struct Timer{
@@ -58,32 +56,32 @@ struct HesaiImages {
     cv::Mat range_precise_;
     cv::Mat range_resized_;
     cv::Mat range_resized_float_;
-    };
+};
 
 class Segmentation {
  public:
     explicit Segmentation(const std::string modelFilePath,
-        const float fov_up, const float fov_down, 
-        const int img_w, const int img_h, const int img_d, 
-        bool do_destagger, bool use_hesai);
-        if (use_hesai) {
-            do_destagger = false;
-            initializeImages();
-        }
-        }
-
+        const float fov_up, const float fov_down,
+        const int img_w, const int img_h, const int img_d,
+        bool do_destagger, bool use_hesai = true);
     Segmentation(const Segmentation &) = delete;
     Segmentation operator=(const Segmentation &) = delete;
     using Ptr = boost::shared_ptr<Segmentation>;
     using ConstPtr = boost::shared_ptr<const Segmentation>;
+    using Point = PointT;
+    using Cloud = CloudT;
 
-    void initializeImages();
+    using NetworkInput = std::vector<std::vector<float>>;
+
+
     void runERF(cv::Mat& rImg, cv::Mat& maskImg);
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
+    void run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg, CloudT::Ptr &padded_cloud);
+
     void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud, unsigned char val, bool dense = false);
     void speedTest(const Cloud::Ptr cloud, size_t numTests);
  private:
-    struct HesaiImages _hesaiImages; // _hesaiImages; better naming convention?
+    HesaiImages _hesaiImages; // _hesaiImages; better naming convention?
     std::vector<std::vector<float>> _doProjection(const std::vector<float>& scan, const uint32_t& num_points);
 
     void _argmax(const float *in, cv::Mat& maskImg);
@@ -94,6 +92,12 @@ class Segmentation {
     void _startONNXSession(const std::string sessionName, const std::string modelFilePath, bool useCUDA, size_t numThreads);
     void _mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg);
     void _destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud);
+
+    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
+                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;
+    void initializeImages();
+
+    std::vector<std::vector<float>> _doHesaiProjection(const HesaiImages& hesaiImages);
 
     boost::shared_ptr<Ort::Session> _session = nullptr;
     boost::shared_ptr<Ort::MemoryInfo> _memoryInfo = nullptr;
@@ -107,9 +111,9 @@ class Segmentation {
     size_t _inputTensorSize;
     size_t _outputTensorSize;
     Timer _timer;
-    bool _verbose = false;
+    bool _verbose = true;
 
-    std::vector<float> proj_xs; // stope a copy in original order
+    std::vector<float> proj_xs; // store a copy in original order
     std::vector<float> proj_ys;
 
     float _fov_up;    // field of view up in radians
@@ -120,6 +124,11 @@ class Segmentation {
     int _img_d;
     bool _do_destagger;
     bool _use_hesai = true;
+
+    void cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud, NetworkInput& ni, CloudT::Ptr& padded_cloud);
+    void cloudToNetworkInput(const CloudT::Ptr& cloud, NetworkInput& ni);
+
+    void runNetwork(NetworkInput &ni, cv::Mat& maskImg);
 };
 
 template <typename T>

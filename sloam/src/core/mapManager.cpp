@@ -19,7 +19,7 @@ void MapManager::updateMap(std::vector<Cylinder>& obs_tms, const std::vector<int
             // transform from observation to map index
             int matchIdx = matchesMap[matches[i]];
             landmarks_->points[matchIdx] = pt;
-            treeModels_[matchIdx] = tree; 
+            treeModels_[matchIdx] = tree;
             treeHits_[matchIdx] += 1;
         }
         i++;
@@ -27,7 +27,7 @@ void MapManager::updateMap(std::vector<Cylinder>& obs_tms, const std::vector<int
     matchesMap.clear();
 }
 
-std::vector<Cylinder> MapManager::getMap() 
+std::vector<Cylinder> MapManager::getMap()
 {
     std::vector<Cylinder> map;
     for(auto i = 0; i < treeModels_.size(); ++i)

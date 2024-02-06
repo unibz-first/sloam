@@ -2,18 +2,22 @@
 
 
 namespace seg {
+
+using NetworkInput = Segmentation::NetworkInput;
+
 Segmentation::Segmentation(const std::string modelFilePath,
-    const float fov_up, const float fov_down, 
-    const int img_w, const int img_h, const int img_d, bool do_destagger) {
+    const float fov_up, const float fov_down,
+    const int img_w, const int img_h, const int img_d, bool do_destagger, bool use_hesai) {
   _fov_up = fov_up / 180.0 * M_PI;    // field of view up in radians
   _fov_down = fov_down / 180.0 * M_PI;  // field of view down in radians
   _fov = std::abs(_fov_down) + std::abs(_fov_up); // get field of view total in radians
   _img_w = img_w;
   _img_h = img_h;
   _img_d = img_d;
-  _verbose = false;
+  _verbose = true;
   _do_destagger = do_destagger;
-  _use_hesai = true;
+  _use_hesai = use_hesai;
+  initializeImages();
 
   const std::string sessionName = "SLOAMSeg";
   // specify number of CPU threads allowed for semantic segmentation inference to use
@@ -50,7 +54,7 @@ void Segmentation::_startONNXSession(
     _memoryInfo = boost::move(memInfo);
 
     // Ort::AllocatorWithDefaultOptions allocator;
-    // INPUT 
+    // INPUT
     const char* inputName = _session->GetInputName(0, _allocator);
     std::cout << "[Segmentation] Input Name: " << inputName << std::endl;
 
@@ -60,7 +64,7 @@ void Segmentation::_startONNXSession(
     // _inputDims = {1, 64, 2048, 2};
     std::cout << "[Segmentation] Input Dimensions: "; printVector(_inputDims);
 
-    // OUTPUT 
+    // OUTPUT
     const char* outputName = _session->GetOutputName(0, _allocator);
     std::cout << "[Segmentation] Output Name: " << outputName << std::endl;
 
@@ -84,17 +88,18 @@ void Segmentation::initializeImages(){
     _hesaiImages.range_ = cv::Mat::zeros(32, 2000, CV_8U); // for img topic viz
     _hesaiImages.intensity_ = cv::Mat::zeros(32, 2000, CV_8U);
     _hesaiImages.range_precise_ = cv::Mat::zeros(32, 2000, CV_64F);
-    _hesaiImages.range_resized_ = cv::Mat::zeros(_img_h, _img_w, CV_64F); // maintain precision on rescaling
-    _hesaiImages.range_resized_float_ = cv::Mat::zeros(_img_h, _img_w, CV_32F); //deliver to ONNX network
+    _hesaiImages.range_resized_ = cv::Mat::zeros(64, 2048, CV_64F); // maintain precision on rescaling
+    _hesaiImages.range_resized_float_ = cv::Mat::zeros(64, 2048, CV_32F); //deliver to ONNX network
 }
 
 void Segmentation::hesaiPointcloudToImage(
-        const HesaiPointCloud& cloud, HesaiImages& hesaiImages) const{
+        const HesaiPointCloud& cloud, HesaiImages& hesaiImages, CloudT::Ptr& padded_cloud) const {
         // cv::Mat& range_image,
         // cv::Mat& intensity_image,
         // // cv::Mat& intens_img_resized,
         // cv::Mat& range_img_precise,
         // cv::Mat& range_img_resized) const{
+
     size_t counter = 0;
     for(int i =0; i < 2000; i++){
         for(std::uint16_t j=0; j < 32; j++){
@@ -104,45 +109,77 @@ void Segmentation::hesaiPointcloudToImage(
                                          cloud.points[counter].z*cloud.points[counter].z);
                 std::uint8_t range_pixel = ((range - 0.05) / (120.0 - 0.05)) * 255;
                 // populate cv::Mat's w range & intensity vals
-                _hesaiImages.range_.at<std::uint8_t>((int)j,i) = range_pixel;
-                _hesaiImages.intensity_.at<std::uint8_t>(j,i) = cloud.points[counter].intensity;
-                _hesaiImages.range_precise_.at<double>(j,i) = range;
+                hesaiImages.range_.at<std::uint8_t>((int)j,i) = range_pixel;
+                hesaiImages.intensity_.at<std::uint8_t>(j,i) = cloud.points[counter].intensity;
+                hesaiImages.range_precise_.at<double>(j,i) = range;
                 counter++;
+                PointT p;
+                pcl::copyPoint(cloud.points[counter],p);
+                padded_cloud->points.push_back(p);
             } else {
                 // TODO: replace with the last pixel value?
-                _hesaiImages.range_.at<std::uint8_t>(j,i) = 0;
-                _hesaiImages.intensity_.at<std::uint8_t>(j,i) = 0;
-                _hesaiImages.range_precise_.at<double>(j,i) = 0.0;
+                hesaiImages.range_.at<std::uint8_t>(j,i) = 0;
+                hesaiImages.intensity_.at<std::uint8_t>(j,i) = 0;
+                hesaiImages.range_precise_.at<double>(j,i) = 0.0;
+                padded_cloud->points.push_back(PointT());
             }
         }
     }
-    cv::resize(_hesaiImages.range_precise_, _hesaiImages.range_resized_, 0, 0, cv::INTER_NEAREST);
+    cv::resize(hesaiImages.range_precise_, hesaiImages.range_resized_,
+               hesaiImages.range_resized_.size(), 0, 0, cv::INTER_NEAREST);
     // critical for ONNX network
-    _hesaiImages.range_resized_.convertTo(_hesaiImages.range_resized_float_, CV_32F);
-
-    return _hesaiImages.range_resized_float_;
+    hesaiImages.range_resized_.convertTo(hesaiImages.range_resized_float_, CV_32F);
 }
 
 
-std::vector<std::vector<float>> Segmentation::_doHesaiProjection(
-  const HesaiImages& _hesaiImages){
+std::vector<std::vector<float>> Segmentation::_doHesaiProjection(const HesaiImages& hesaiImages) {
+  const cv::Mat& mat = hesaiImages.range_resized_float_;
 
-  // Create the output vector
-  std::vector<std::vector<float>> rangeImgVector(64, std::vector<float>(2048));
-  cv::Mat& mat = _hesaiImages.range_resized_float_; 
+  std::vector<float> proj_xs_tmp;
+  std::vector<float> proj_ys_tmp;
+  std::vector<float> invalid_input =  {0.0f};
+  std::vector<float> ranges;
   // Copy the data from the cv::Mat to the vector
   for (int i = 0; i < mat.rows; ++i) {
     for (int j = 0; j < mat.cols; ++j) {
-      rangeImgVector[i][j] = mat.at<float>(i, j); //works??
+        proj_xs_tmp.push_back(j);
+        proj_ys_tmp.push_back(i);
+        ranges.push_back(mat.at<float>(i, j));
     }
   }
+  proj_xs = proj_xs_tmp;
+  proj_ys = proj_ys_tmp;
+  uint32_t num_points = 64 * 2048;
+  // order in decreasing depth
+  std::vector<size_t> orders = sort_indexes(ranges);
+  std::vector<float> sorted_proj_xs;
+  sorted_proj_xs.reserve(num_points);
+  std::vector<float> sorted_proj_ys;
+  sorted_proj_ys.reserve(num_points);
+  std::vector<std::vector<float>> inputs;
+  inputs.reserve(num_points);
+  for (size_t idx : orders){
+    sorted_proj_xs.push_back(proj_xs[idx]);
+    sorted_proj_ys.push_back(proj_ys[idx]);
+    std::vector<float> input = {ranges[idx]};
+    inputs.push_back(input);
+  }
+  // assing to images
+  std::vector<std::vector<float>> range_image(num_points);
 
-  return rangeImgVector;
+  // zero initialize
+  for (uint32_t i = 0; i < range_image.size(); ++i) {
+      range_image[i] = invalid_input;
+  }
+  for (uint32_t i = 0; i < inputs.size(); ++i) {
+    range_image[int(sorted_proj_ys[i] * 2048 + sorted_proj_xs[i])] = inputs[i];
+  }
+  return range_image;
 }
 
 std::vector<std::vector<float>> Segmentation::_doProjection(
   const std::vector<float>& scan, const uint32_t& num_points){
-  
+
   // std::vector<float> invalid_input =  {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   std::vector<float> invalid_input =  {0.0f};
 
@@ -191,6 +228,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
     proj_ys_tmp.push_back(proj_y);
   }
 
+
   // stope a copy in original order
   proj_xs = proj_xs_tmp;
   proj_ys = proj_ys_tmp;
@@ -229,12 +267,12 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
 }
 
 void Segmentation::_makeTensor(
-  std::vector<std::vector<float>>& projected_data, 
+  std::vector<std::vector<float>>& projected_data,
   std::vector<float>& tensor, std::vector<size_t>& invalid_idxs){
   // TODO LOAD THIS TOO
   std::vector<float> _img_means = {12.97};
   std::vector<float> _img_stds = {12.35};
-  // arkansas 
+  // arkansas
   // std::vector<float> _img_means = {12.97, -0.21, -0.13, 0.26, 942.62};
   // std::vector<float> _img_stds = {12.35, 12.04, 12.95, 2.86, 1041.79};
   // kitti
@@ -287,7 +325,7 @@ void Segmentation::_destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud)
         outPt.y = pt.y;
         outPt.z = pt.z;
       }
-      
+
       col_valid = true;
     }
   }
@@ -314,12 +352,12 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
       Point p;
       p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
       tempCloud->points.push_back(p);
-    } 
+    }
   }
 
   pcl::copyPointCloud(*tempCloud, *outCloud);
   if(dense){
-    // destagger. TODO: Do this with mask    
+    // destagger. TODO: Do this with mask
     // Adapted from Chao's driver
     if (_do_destagger){
       _destaggerCloud(tempCloud, outCloud);
@@ -339,7 +377,7 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 }
 
 void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg){
-  size_t channel_offset = _img_w * _img_h;
+  size_t channel_offset = 2048*64;//_img_w * _img_h;
   unsigned char _n_classes = 3;
   std::vector<unsigned char> max;
 
@@ -357,7 +395,7 @@ void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid
       if(out_idx == 2) out_idx = 255;
       max.push_back(out_idx);
     }
-  
+
   for(const int idx : invalid_idxs){
     max[idx] = 0;
   }
@@ -403,11 +441,11 @@ void Segmentation::_argmax(const float *in, cv::Mat& maskImg){
 void Segmentation::runERF(cv::Mat& rImg, cv::Mat& maskImg){
     cv::Mat pImg(rImg.rows, rImg.cols, CV_32FC2, cv::Scalar(0));
     _preProcessRange(rImg, pImg, 30);
-    
+
     std::vector<float> outputTensorValues(_outputTensorSize);
     std::vector<float> inputTensorValues(_inputTensorSize);
 
-    auto imgSize = pImg.rows * pImg.cols * pImg.channels(); 
+    auto imgSize = pImg.rows * pImg.cols * pImg.channels();
     memcpy(inputTensorValues.data(), pImg.data, imgSize * sizeof(float));
     std::cout << "Tensor size: " << _inputTensorSize << std::endl;
     std::cout << "Tensor size: " << _outputTensorSize << std::endl;
@@ -437,29 +475,25 @@ void Segmentation::runERF(cv::Mat& rImg, cv::Mat& maskImg){
     _argmax(outData, maskImg);
 }
 
-
-
-void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
-    if(_use_hesai){
-      // call hesai function that turns cloud to cv::Mat image 
-      auto rangeImgVector = hesaiPointcloudToImage(cloud, _hesaiImages);
-      // call hesai projection function
-      auto netInput = _doHesaiProjection(_hesaiImages);
-
-    } else  {
+void Segmentation::cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud, NetworkInput& ni, CloudT::Ptr& padded_cloud){
+    hesaiPointcloudToImage(*cloud, _hesaiImages, padded_cloud);
+    // call hesai projection function
+    ni = _doHesaiProjection(_hesaiImages);
+}
+void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud, NetworkInput& netInput){
     std::vector<float> cloudVector;
     for (const auto& point : cloud->points) {
-        cloudVector.push_back(point.x); cloudVector.push_back(point.y);
-        cloudVector.push_back(point.z); cloudVector.push_back(point.intensity);
+      cloudVector.push_back(point.x);
+      cloudVector.push_back(point.y);
+      cloudVector.push_back(point.z);
+      cloudVector.push_back(point.intensity);
     }
 
-    if(_verbose){
+    if (_verbose) {
       std::cout << "Projecting data" << std::endl;
       _timer.tic();
     }
-
-    auto netInput = _doProjection(cloudVector, cloud->width*cloud->height);
-
+    netInput = _doProjection(cloudVector, cloud->width * cloud->height);
     // int dims[] = {64,2048};
     // std::vector<float> flattened_inp;
     // for (int i = 0; i < _img_h*_img_w; ++i) {
@@ -470,10 +504,13 @@ void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
     // cv::FileStorage file("/opt/bags/inf/inp.ext", cv::FileStorage::WRITE);
     // file << "mat" << result;
 
-    if(_verbose){
+    if (_verbose) {
       _timer.toc();
     }
+}
 
+
+void Segmentation::runNetwork(NetworkInput &netInput, cv::Mat &maskImg){
     std::vector<float> outputTensorValues(_outputTensorSize);
     std::vector<float> inputTensorValues(_inputTensorSize);
     std::vector<size_t> invalid_idxs;
@@ -482,7 +519,6 @@ void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
       std::cout << "Making tensor" << std::endl;
       _timer.tic();
     }
-    
     _makeTensor(netInput, inputTensorValues, invalid_idxs);
 
     if(_verbose){
@@ -523,6 +559,20 @@ void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
     }
 }
 
+void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
+    NetworkInput ni;
+    cloudToNetworkInput(cloud, ni);
+    runNetwork(ni, maskImg);
+}
+
+void Segmentation::run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg, CloudT::Ptr& padded_cloud){
+    NetworkInput ni;
+    ROS_INFO_STREAM("Segmentation::run 1");
+    cloudToNetworkInput(cloud, ni, padded_cloud);
+    ROS_INFO_STREAM("Segmentation::run 2");
+    runNetwork(ni, maskImg);
+}
+
 void Segmentation::speedTest(const Cloud::Ptr cloud, size_t numTests){
     std::vector<float> cloudVector;
     for (const auto& point : cloud->points) {
@@ -532,7 +582,7 @@ void Segmentation::speedTest(const Cloud::Ptr cloud, size_t numTests){
 
     std::cout << "PROJECTION" << std::endl;
     auto netInput = _doProjection(cloudVector, cloud->width*cloud->height);
-    
+
     std::cout << "TO TENSOR" << std::endl;
     std::vector<float> outputTensorValues(_outputTensorSize);
     std::vector<float> inputTensorValues(_inputTensorSize);

@@ -36,10 +36,11 @@ namespace sloam
     using Ptr = boost::shared_ptr<SLOAMNode>;
     using ConstPtr = boost::shared_ptr<const SLOAMNode>;
     bool run(const SE3 initialGuess, const SE3 prevKeyPose, CloudT::Ptr cloud, ros::Time stamp, SE3 &outPose);
+    bool run(const SE3 initialGuess, const SE3 prevKeyPose, HesaiPointCloud::Ptr cloud, ros::Time stamp, SE3 &outPose);
 
   private:
     void initParams_();
-    Cloud::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
+    CloudT::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
     void publishMap_(const ros::Time stamp);
     /*
     * --------------- Visualization ------------------
@@ -79,5 +80,8 @@ namespace sloam
     std::vector<SE3> trajectory;
     bool firstScan_;
     bool debugMode_;
+    bool runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
+                         SE3 &outPose, const cv::Mat &rMask, SloamInput& sloamIn, SloamOutput& sloamOut);
+    bool prepSegmentation(const SE3& initialGuess, const SE3& prevKeyPose, SloamInput &sloamIn);
   };
 } // namespace sloam

@@ -155,7 +155,7 @@ namespace sloam
     }
   }
 
-  Cloud::Ptr SLOAMNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
+  CloudT::Ptr SLOAMNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
   {
     CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
     std::vector<float> color_values((int)landmarks.size());
@@ -183,31 +183,8 @@ namespace sloam
     return vtxCloud;
   }
 
-  bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose, CloudT::Ptr cloud, ros::Time stamp, SE3 &outPose)
-  {
-
-    SloamInput sloamIn = SloamInput();
-    SloamOutput sloamOut = SloamOutput();
-
-    SE3 poseEstimate = prevKeyPose * initialGuess;
-    // sloamIn.initialGuess = initialGuess;
-    // sloamIn.prevPose = mapCurrPose_;
-    sloamIn.poseEstimate = poseEstimate;
-    sloamIn.distance = initialGuess.translation().norm();
-    semanticMap_.getSubmap(poseEstimate, sloamIn.mapModels);
-
-    if (!firstScan_ && sloamIn.mapModels.size() == 0)
-    {
-      ROS_DEBUG("Discarding msg");
-      return false;
-    }
-
-    ROS_INFO_STREAM("Entering Callback. Lidar data stamp: " << stamp);
-
-    // RUN SEGMENTATION
-    cv::Mat rMask = cv::Mat::zeros(cloud->height, cloud->width, CV_8U);
-    segmentator_->run(cloud, rMask);
-
+  bool SLOAMNode::runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
+                                  SE3 &outPose, const cv::Mat& rMask, SloamInput& sloamIn, SloamOutput& sloamOut) {
     CloudT::Ptr groundCloud(new CloudT());
     segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
 
@@ -220,26 +197,25 @@ namespace sloam
 
     // Trellis graph instance segmentation
     graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
-    ROS_INFO_STREAM("Num Landmarks detected with Trellis: " << sloamIn.landmarks.size());
+    ROS_INFO_STREAM(
+        "Num Landmarks detected with Trellis: " << sloamIn.landmarks.size());
     ROS_INFO_STREAM("Num Map Landmarks: " << sloamIn.mapModels.size());
 
-    if (debugMode_ && !firstScan_)
-    {
+    if (debugMode_ && !firstScan_) {
       // DEBUG TOPICS
       auto mapGFeats = getPrevGroundFeatures();
       mapGFeats.header.frame_id = map_frame_id_;
       pubMapGroundFeatures_.publish(mapGFeats);
-      pubMapGroundModel_.publish(vizGroundModel(getPrevGroundModel(), map_frame_id_, 444));
+      pubMapGroundModel_.publish(
+          vizGroundModel(getPrevGroundModel(), map_frame_id_, 444));
     }
 
     bool success = RunSloam(sloamIn, sloamOut);
     semanticMap_.updateMap(sloamOut.tm, sloamOut.matches);
     ROS_DEBUG_STREAM("Publishing Results. Success? " << success << std::endl);
 
-    if (success)
-    {
-      if (firstScan_ && sloamOut.tm.size() > 0)
-        firstScan_ = false;
+    if (success) {
+      if (firstScan_ && sloamOut.tm.size() > 0) firstScan_ = false;
 
       publishMap_(stamp);
       pubMapPose_.publish(makeROSPose(sloamOut.T_Map_Curr, map_frame_id_));
@@ -249,8 +225,7 @@ namespace sloam
       //////////////////////////////////////////////////////
       // FOR DEBUGGING
       // Republish input map
-      if (debugMode_)
-      {
+      if (debugMode_) {
         visualization_msgs::MarkerArray trajMarkers = vizTrajectory(trajectory);
         pubTrajectory_.publish(trajMarkers);
 
@@ -268,19 +243,80 @@ namespace sloam
         // groundCloud->header.frame_id = map_frame_id_;
         // pubObsGroundFeatures_.publish(groundCloud);
         auto trellis = trellisCloud(sloamIn.landmarks);
-        pcl::transformPointCloud(*trellis, *trellis, sloamOut.T_Map_Curr.matrix());
+        pcl::transformPointCloud(*trellis, *trellis,
+                                 sloamOut.T_Map_Curr.matrix());
         pubObsTreeFeatures_.publish(trellis);
 
         // After running sloam, prevGround is already relative to this obs
         auto obsGFeats = getPrevGroundFeatures();
         obsGFeats.header.frame_id = map_frame_id_;
         pubObsGroundFeatures_.publish(obsGFeats);
-        pubObsGroundModel_.publish(vizGroundModel(getPrevGroundModel(), map_frame_id_, 111));
+        pubObsGroundModel_.publish(
+            vizGroundModel(getPrevGroundModel(), map_frame_id_, 111));
       }
     }
     return success;
   }
+
+  bool SLOAMNode::prepSegmentation(const SE3 &initialGuess,
+                                   const SE3 &prevKeyPose,
+                                   SloamInput &sloamIn) {
+    SE3 poseEstimate = prevKeyPose * initialGuess;
+    // sloamIn.initialGuess = initialGuess;
+    // sloamIn.prevPose = mapCurrPose_;
+    sloamIn.poseEstimate = poseEstimate;
+    sloamIn.distance = initialGuess.translation().norm();
+    semanticMap_.getSubmap(poseEstimate, sloamIn.mapModels);
+
+    if (!firstScan_ && sloamIn.mapModels.size() == 0)
+    {
+      ROS_DEBUG("Discarding msg");
+      return false;
+    }
+    return true;
+  }
+
+  bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
+                      CloudT::Ptr cloud, ros::Time stamp, SE3 &outPose) {
+    SloamInput sloamIn;
+    SloamOutput sloamOut;
+    if(!prepSegmentation(initialGuess, prevKeyPose, sloamIn)){
+        return false;
+    }
+    ROS_INFO_STREAM("Entering Callback. Lidar data stamp: " << stamp);
+    // RUN SEGMENTATION
+    cv::Mat rMask = cv::Mat::zeros(cloud->height, cloud->width, CV_8U);
+    segmentator_->run(cloud, rMask);
+    return runSegmentation(cloud, stamp, outPose, rMask, sloamIn, sloamOut);
+  }
+
+  bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
+                      HesaiPointCloud::Ptr cloud, ros::Time stamp,
+                      SE3 &outPose) {
+      SloamInput sloamIn;
+      SloamOutput sloamOut;
+      if(!prepSegmentation(initialGuess, prevKeyPose, sloamIn)){
+          return false;
+      }
+      ROS_INFO_STREAM("Entering Callback. Hesai lidar data stamp: " << stamp);
+      // RUN SEGMENTATION
+      cv::Mat rMask = cv::Mat::zeros(64, 2048, CV_8U);
+      cv::Mat rMaskScaled = cv::Mat::zeros(32, 2000, CV_8U);
+      CloudT::Ptr cloud_xyzi = boost::make_shared<CloudT>();
+      cloud_xyzi->header = cloud->header;
+      cloud_xyzi->is_dense = true;
+      cloud_xyzi->width = 2000;
+      cloud_xyzi->height = 32;
+      ROS_INFO_STREAM("Entering Callback2. Hesai lidar data stamp: " << stamp);
+      segmentator_->run(cloud, rMask, cloud_xyzi);
+      cv::resize(rMask, rMaskScaled, rMaskScaled.size(), 0, 0,
+                 cv::INTER_NEAREST);
+      ROS_WARN_STREAM("SIZE RESCALED CLOUD: " << cloud_xyzi->points.size() << " " << cloud_xyzi->width << " " << cloud_xyzi->height);
+      return runSegmentation(cloud_xyzi, stamp, outPose, rMask, sloamIn,
+                             sloamOut);
+  }
 } // namespace sloam
+
 
 // int main(int argc, char **argv) {
 //   ros::init(argc, argv, "sloam");

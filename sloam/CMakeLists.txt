@@ -60,14 +60,14 @@ cc_library(
 
 cc_library(
     NAME viz
-    DEPS sloam_log sloam_base sloam_objects 
-    INCS include/viz 
+    DEPS sloam_log sloam_base sloam_objects
+    INCS include/viz
     SRCS "src/viz/vizTools.cpp"
     )
 
 cc_library(
     NAME segmentation
-    INCS include/segmentation
+    INCS include/segmentation include/
     SRCS "src/segmentation/inference.cpp" "src/segmentation/trellis.cpp"
     DEPS sloam_base)
 
@@ -80,7 +80,7 @@ cc_library(
 
 cc_binary(
   NAME inference_node
-  SRCS "src/segmentation/inferenceNode.cpp" 
+  SRCS "src/segmentation/inferenceNode.cpp"
   DEPS sloam_base sloam_segmentation)
 
 cc_binary(
@@ -94,7 +94,7 @@ if(BUILD_TESTING)
 enable_testing()
 # Example usage: ./sloam_ws/devel/lib/sloam/sloam_all_test --gtest_filter=CylinderTest* (optional filter)
 cc_test(
-  NAME all_test 
+  NAME all_test
   SRCS "src/tests/run_all_test.cpp" "src/tests/plane_test.cpp" "src/tests/cylinder_test.cpp" "src/tests/core_test.cpp"
   DEPS sloam_base sloam_objects sloam_core GTest::GTest)
 endif()
