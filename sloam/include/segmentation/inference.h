@@ -63,7 +63,7 @@ class Segmentation {
     explicit Segmentation(const std::string modelFilePath,
         const float fov_up, const float fov_down,
         const int img_w, const int img_h, const int img_d,
-        bool do_destagger, bool use_hesai = true);
+        bool do_destagger);
     Segmentation(const Segmentation &) = delete;
     Segmentation operator=(const Segmentation &) = delete;
     using Ptr = boost::shared_ptr<Segmentation>;
@@ -123,7 +123,6 @@ class Segmentation {
     int _img_h;
     int _img_d;
     bool _do_destagger;
-    bool _use_hesai = true;
 
     void cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud, NetworkInput& ni, CloudT::Ptr& padded_cloud);
     void cloudToNetworkInput(const CloudT::Ptr& cloud, NetworkInput& ni);

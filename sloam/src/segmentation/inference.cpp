@@ -7,7 +7,7 @@ using NetworkInput = Segmentation::NetworkInput;
 
 Segmentation::Segmentation(const std::string modelFilePath,
     const float fov_up, const float fov_down,
-    const int img_w, const int img_h, const int img_d, bool do_destagger, bool use_hesai) {
+    const int img_w, const int img_h, const int img_d, bool do_destagger) {
   _fov_up = fov_up / 180.0 * M_PI;    // field of view up in radians
   _fov_down = fov_down / 180.0 * M_PI;  // field of view down in radians
   _fov = std::abs(_fov_down) + std::abs(_fov_up); // get field of view total in radians
@@ -16,7 +16,6 @@ Segmentation::Segmentation(const std::string modelFilePath,
   _img_d = img_d;
   _verbose = true;
   _do_destagger = do_destagger;
-  _use_hesai = use_hesai;
   initializeImages();
 
   const std::string sessionName = "SLOAMSeg";
