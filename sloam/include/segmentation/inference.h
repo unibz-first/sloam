@@ -56,6 +56,9 @@ struct HesaiImages {
     cv::Mat range_precise_;
     cv::Mat range_resized_;
     cv::Mat range_resized_float_;
+    cv::Mat range_resized_show_;
+    cv::Mat mask_resized_; // 64x2058
+    cv::Mat mask_; // hesai 32x2000
 };
 
 class Segmentation {
@@ -76,13 +79,36 @@ class Segmentation {
 
     void runERF(cv::Mat& rImg, cv::Mat& maskImg);
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
-    void run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg, CloudT::Ptr &padded_cloud);
+    void run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg,
+             CloudT::Ptr &padded_cloud);
 
-    void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud, unsigned char val, bool dense = false);
+    void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud,
+                   unsigned char val, bool dense = false);
     void speedTest(const Cloud::Ptr cloud, size_t numTests);
- private:
-    HesaiImages _hesaiImages; // _hesaiImages; better naming convention?
-    std::vector<std::vector<float>> _doProjection(const std::vector<float>& scan, const uint32_t& num_points);
+    NetworkInput _doProjection(const std::vector<float>& scan,
+                               const uint32_t& num_points,
+                               std::vector<float>* rgs = nullptr,
+                               std::vector<size_t>* xps = nullptr,
+                               std::vector<size_t>* yps = nullptr);
+    NetworkInput sortOrder(int h, int w,
+                   std::vector<float>* rgs = nullptr,
+                   std::vector<size_t>* xps = nullptr,
+                   std::vector<size_t>* yps = nullptr);
+    void cloudToCloudVector(const Cloud::Ptr& cloud,
+                            std::vector<float>& cloudVector) const;
+
+    HesaiImages _hesaiImages;
+    void initializeImages();
+
+    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
+                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;
+    NetworkInput _doHesaiProjection(const HesaiImages& hesaiImages,
+                                    std::vector<float> *rgs = nullptr,
+                                    std::vector<size_t> *xps = nullptr,
+                                    std::vector<size_t> *yps = nullptr);
+
+private:
+
 
     void _argmax(const float *in, cv::Mat& maskImg);
 
@@ -93,11 +119,6 @@ class Segmentation {
     void _mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg);
     void _destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud);
 
-    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
-                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;
-    void initializeImages();
-
-    std::vector<std::vector<float>> _doHesaiProjection(const HesaiImages& hesaiImages);
 
     boost::shared_ptr<Ort::Session> _session = nullptr;
     boost::shared_ptr<Ort::MemoryInfo> _memoryInfo = nullptr;
@@ -123,10 +144,10 @@ class Segmentation {
     int _img_h;
     int _img_d;
     bool _do_destagger;
-
-    void cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud, NetworkInput& ni, CloudT::Ptr& padded_cloud);
+public:
+    void cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud,
+                             NetworkInput& ni, CloudT::Ptr& padded_cloud);
     void cloudToNetworkInput(const CloudT::Ptr& cloud, NetworkInput& ni);
-
     void runNetwork(NetworkInput &ni, cv::Mat& maskImg);
 };
 

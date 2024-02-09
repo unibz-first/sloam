@@ -36,4 +36,4 @@ sloam:
   debug_mode: true
   use_hesai: true
   do_destagger: false
-  use_hesai: true
+  #use_hesai: true

@@ -34,6 +34,7 @@ find_package(Eigen3 REQUIRED)
 find_package(glog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(GTest REQUIRED)
+#find_package(PCL REQUIRED COMPONENTS io common)
 
 find_path(ONNX_RUNTIME_SESSION_INCLUDE_DIRS onnxruntime_cxx_api.h HINTS /usr/local/include/onnxruntime/core/session/)
 find_library(ONNX_RUNTIME_LIB onnxruntime HINTS /usr/local/lib)
@@ -98,3 +99,8 @@ cc_test(
   SRCS "src/tests/run_all_test.cpp" "src/tests/plane_test.cpp" "src/tests/cylinder_test.cpp" "src/tests/core_test.cpp"
   DEPS sloam_base sloam_objects sloam_core GTest::GTest)
 endif()
+
+# SM PROG
+add_executable(sm_prog src/segmentation/sm_prog.cpp)
+target_include_directories(sm_prog PRIVATE ${catkin_INCLUDE_DIRS})
+target_link_libraries(sm_prog LINK_PUBLIC sloam_segmentation ${OpenCV_LIBS} ${Boost_LIBRARIES} ${catkin_LIBRARIES})
