@@ -141,7 +141,7 @@ void Segmentation::hesaiPointcloudToImage(
 }
 
 
-std::vector<std::vector<float>> Segmentation::_doHesaiProjection(
+NetworkInput Segmentation::_doHesaiProjection(
         const HesaiImages& hesaiImages,
         std::vector<float>* rgs,
         std::vector<size_t>* xps,
@@ -169,33 +169,36 @@ std::vector<std::vector<float>> Segmentation::_doHesaiProjection(
         }
     }
   }
-  proj_xs = proj_xs_tmp;
-  proj_ys = proj_ys_tmp;
-  uint32_t num_points = 64 * 2048;
-  // order in decreasing depth
-  std::vector<size_t> orders = sort_indexes(ranges);
-  std::vector<float> sorted_proj_xs;
-  sorted_proj_xs.reserve(num_points);
-  std::vector<float> sorted_proj_ys;
-  sorted_proj_ys.reserve(num_points);
-  std::vector<std::vector<float>> inputs;
-  inputs.reserve(num_points);
-  for (size_t idx : orders){
-    sorted_proj_xs.push_back(proj_xs[idx]);
-    sorted_proj_ys.push_back(proj_ys[idx]);
-    std::vector<float> input = {ranges[idx]};
-    inputs.push_back(input);
-  }
-  // assing to images
-  std::vector<std::vector<float>> range_image(num_points);
+//  proj_xs = proj_xs_tmp;
+//  proj_ys = proj_ys_tmp;
+//  uint32_t num_points = 64 * 2048;
 
-  // zero initialize
-  for (uint32_t i = 0; i < range_image.size(); ++i) {
-      range_image[i] = invalid_input;
-  }
-  for (uint32_t i = 0; i < inputs.size(); ++i) {
-    range_image[int(sorted_proj_ys[i] * 2048 + sorted_proj_xs[i])] = inputs[i];
-  }
+//  // order in decreasing depth
+  NetworkInput range_image = sortOrder(mat.rows, mat.cols, rgs, xps, yps);
+
+//  std::vector<size_t> orders = sort_indexes(ranges);
+//  std::vector<float> sorted_proj_xs;
+//  sorted_proj_xs.reserve(num_points);
+//  std::vector<float> sorted_proj_ys;
+//  sorted_proj_ys.reserve(num_points);
+//  std::vector<std::vector<float>> inputs;
+//  inputs.reserve(num_points);
+//  for (size_t idx : orders){
+//    sorted_proj_xs.push_back(proj_xs[idx]);
+//    sorted_proj_ys.push_back(proj_ys[idx]);
+//    std::vector<float> input = {ranges[idx]};
+//    inputs.push_back(input);
+//  }
+//  // assing to images
+//  std::vector<std::vector<float>> range_image(num_points);
+
+//  // zero initialize
+//  for (uint32_t i = 0; i < range_image.size(); ++i) {
+//      range_image[i] = invalid_input;
+//  }
+//  for (uint32_t i = 0; i < inputs.size(); ++i) {
+//    range_image[int(sorted_proj_ys[i] * 2048 + sorted_proj_xs[i])] = inputs[i];
+//  }
   return range_image;
 }
 
@@ -205,33 +208,63 @@ NetworkInput Segmentation::sortOrder(int h, int w,
                std::vector<size_t>* yps){
     // order in decreasing depth
     int num_points = h*w;
+    std::cerr << "h: " << h << "\n";
+    std::cerr << "w: " << w << "\n";
+    std::cerr << "got in the function \n";
 //    NetworkInput range_image;
-     std::vector<size_t> orders = sort_indexes(*rgs);
-     std::vector<size_t> sorted_proj_xs;
-     sorted_proj_xs.reserve(h * w);
-     std::vector<size_t> sorted_proj_ys;
-     sorted_proj_ys.reserve(h * w);
-     std::vector<std::vector<float>> inputs;
-     inputs.reserve(num_points);
-     for (size_t idx : orders){ // ordered-range idx queries x,y vectors
-       sorted_proj_xs.push_back((*xps)[idx]);
-       sorted_proj_ys.push_back((*yps)[idx]);
-       std::vector<float> input = {(*rgs)[idx]};
-       inputs.push_back(input);
-     }
-     // assing to images
-     NetworkInput range_image(num_points);
-     std::vector<float> invalid_input =  {0.0f};
 
-     // zero initialize
+    std::vector<size_t> orders;
+    if (rgs!= nullptr) {
+        orders = sort_indexes(*rgs);
+    }
+
+//    std::cerr << "orders: ";
+//    for (size_t idx : orders) {
+//        std::cerr << idx << " ";
+//    }
+//    std::cerr << "\n";
+    std::cerr << "orders ok \n";
+    std::vector<size_t> sorted_proj_xs;
+    sorted_proj_xs.reserve(num_points);
+    std::cerr << "built spxs \n";
+    std::vector<size_t> sorted_proj_ys;
+    sorted_proj_ys.reserve(num_points);
+    std::cerr << "built spys \n";
+    std::vector<std::vector<float>> inputs;
+    inputs.reserve(num_points);
+    for (size_t idx : orders){ // ordered-range idx queries x,y vectors
+//        std::cerr << "in loop \n";
+        sorted_proj_xs.push_back((*xps)[idx]);
+        sorted_proj_ys.push_back((*yps)[idx]);
+        std::vector<float> input = {(*rgs)[idx]};
+        inputs.push_back(input);
+    }
+    // assing to images
+    std::cerr << "Sizes: rgs=" << (rgs != nullptr ? rgs->size() : 0)
+              << ", xps=" << (xps != nullptr ? xps->size() : 0)
+              << ", yps=" << (yps != nullptr ? yps->size() : 0)
+              << "\n";
+    NetworkInput range_image(num_points);
+    std::cerr << "range to net \n";
+    std::vector<float> invalid_input =  {0.0f};
+
+    std::cerr << "Size of range_image: " << range_image.size() << "\n";
+    std::cerr << "w: " << w << "\n";
+    // zero initialize
      for (uint32_t i = 0; i < range_image.size(); ++i) {
          range_image[i] = invalid_input;
      }
-
      for (uint32_t i = 0; i < inputs.size(); ++i) {
          //       range_image[int(sorted_proj_ys[i] * w + sorted_proj_xs[i])] = inputs[i]; // w = 2048 **
+         uint32_t index = int(sorted_proj_ys[i] * w + sorted_proj_xs[i]);
+         if (index < range_image.size()) {
+             range_image[index] = inputs[i];
+         } else {
+             std::cerr << "Index out of bounds: " << index << "\n";
+         }
          range_image[int(sorted_proj_ys[i] * w + sorted_proj_xs[i])] = inputs[i]; // w = 2048 **
      }
+     std::cerr << "returning range image \n";
 
      return range_image;  //DANGER: != cv::Mat HesaiImages.{range_,}
 }
@@ -301,41 +334,43 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
         yps->push_back(proj_y);
     }
   }
+  std::cerr << "h: " << _img_h << "\n";
+  std::cerr << "w: " << _img_w << "\n";
+  NetworkInput range_image = sortOrder(_img_h, _img_w, rgs, xps, yps);
 
+//  // stope a copy in original order
+//  proj_xs = proj_xs_tmp;
+//  proj_ys = proj_ys_tmp;
 
-  // stope a copy in original order
-  proj_xs = proj_xs_tmp;
-  proj_ys = proj_ys_tmp;
+//  // order in decreasing depth
+//  std::vector<size_t> orders = sort_indexes(ranges);
+//  std::vector<float> sorted_proj_xs;
+//  sorted_proj_xs.reserve(num_points);
+//  std::vector<float> sorted_proj_ys;
+//  sorted_proj_ys.reserve(num_points);
+//  std::vector<std::vector<float>> inputs;
+//  inputs.reserve(num_points);
 
-  // order in decreasing depth
-  std::vector<size_t> orders = sort_indexes(ranges);
-  std::vector<float> sorted_proj_xs;
-  sorted_proj_xs.reserve(num_points);
-  std::vector<float> sorted_proj_ys;
-  sorted_proj_ys.reserve(num_points);
-  std::vector<std::vector<float>> inputs;
-  inputs.reserve(num_points);
+//  for (size_t idx : orders){
+//    sorted_proj_xs.push_back(proj_xs[idx]);
+//    sorted_proj_ys.push_back(proj_ys[idx]);
+//    // std::vector<float> input = {ranges[idx], xs[idx], ys[idx], zs[idx], intensitys[idx]};
+//    // std::vector<float> input = {ranges[idx], zs[idx], xs[idx], ys[idx], intensitys[idx]};
+//    std::vector<float> input = {ranges[idx]};
+//    inputs.push_back(input);
+//  }
 
-  for (size_t idx : orders){
-    sorted_proj_xs.push_back(proj_xs[idx]);
-    sorted_proj_ys.push_back(proj_ys[idx]);
-    // std::vector<float> input = {ranges[idx], xs[idx], ys[idx], zs[idx], intensitys[idx]};
-    // std::vector<float> input = {ranges[idx], zs[idx], xs[idx], ys[idx], intensitys[idx]};
-    std::vector<float> input = {ranges[idx]};
-    inputs.push_back(input);
-  }
+//  // assing to images
+//  std::vector<std::vector<float>> range_image(_img_w * _img_h);
 
-  // assing to images
-  std::vector<std::vector<float>> range_image(_img_w * _img_h);
+//  // zero initialize
+//  for (uint32_t i = 0; i < range_image.size(); ++i) {
+//      range_image[i] = invalid_input;
+//  }
 
-  // zero initialize
-  for (uint32_t i = 0; i < range_image.size(); ++i) {
-      range_image[i] = invalid_input;
-  }
-
-  for (uint32_t i = 0; i < inputs.size(); ++i) {
-    range_image[int(sorted_proj_ys[i] * _img_w + sorted_proj_xs[i])] = inputs[i];
-  }
+//  for (uint32_t i = 0; i < inputs.size(); ++i) {
+//    range_image[int(sorted_proj_ys[i] * _img_w + sorted_proj_xs[i])] = inputs[i];
+//  }
 
   return range_image; //DANGER: NOT TO BE CONFUSED WITH THE cv::Mat HesaiImages.{range_, intensity_, etc.}
 }

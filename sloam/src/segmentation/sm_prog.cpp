@@ -64,21 +64,29 @@ void maskImgViz(cv::Mat mask_img, bool do_write = false){
 //}
 
 int main () {
-    // imgseg = segConstruct();
+    bool use_hesai = true;
+    std::string pcd_dir = "/home/mchang/Downloads/bags/sloam_bags/";
+    std::string pcdfile = pcd_dir + "83332000" + ".pcd";
+
+    seg::Segmentation imgseg(
+                "/home/mchang/sloam/models/stable_bdarknet.onnx",
+                22.5, -22.5, 2048, 64, 1, true);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZI>);
+
     // hesai variation ********************
     seg::Segmentation hesaiseg(
-                "/home/mchang/sloam/models/stable_bdarknet.onnx",
-                16.0, -15.0, 2000, 32, 1, false);
-    HesaiPointCloud::Ptr cloud (new HesaiPointCloud);
-//    hesaiseg.initializeImages();
-    CloudT::Ptr padded_cloud(new CloudT);
-//    auto temp_seg = boost::make_shared<seg::Segmentation>(
-//                modelFilepath,
-//                fov, -fov, lidar_w, lidar_h, 1, do_destagger);
+            "/home/mchang/sloam/models/stable_bdarknet.onnx",
+            16.0, -15.0, 2000, 32, 1, false);
+    HesaiPointCloud::Ptr hesai_cloud;
+    CloudT::Ptr padded_cloud;
+    if (use_hesai) {
+        pcdfile = pcd_dir + "test_hesai_cloud" + ".pcd";
+        // std::cout << pcdfile << std::endl;
+        hesai_cloud = HesaiPointCloud::Ptr(new HesaiPointCloud);
+        padded_cloud = CloudT::Ptr(new CloudT);
+    }
 
-    std::string pcd_dir = "/home/mchang/Downloads/bags/sloam_bags/";
-    std::string pcdfile = pcd_dir + "hesai_test_" + ".pcd";
-//    std::string pcdfile = pcd_dir + "83332000" + ".pcd";
+    // for both
     pcl::io::loadPCDFile(pcdfile, *cloud);
     std::cout << "Loaded " << cloud->width * cloud->height
                 << " data points from .pcd" << std::endl;
@@ -93,35 +101,36 @@ int main () {
     std::vector<size_t> xps, yps;
     std::vector<float> scan;
 
+    if (use_hesai) {
+        //hesai cloud needs to become padded
+        hesaiseg.hesaiPointcloudToImage(*hesai_cloud, hesaiseg._hesaiImages,
+                                        padded_cloud);
+//        hesaiseg.cloudToCloudVector(padded_cloud, scan);
+        net_input = hesaiseg._doHesaiProjection(hesaiseg._hesaiImages,
+                                                &rgs, &xps, &yps);
+        cv::imshow("hesaiImages", hesaiseg._hesaiImages.range_resized_);
+        cv::waitKey(0);
+        hesaiseg.runNetwork(net_input, mask_image);
+    } else {
+        imgseg.cloudToCloudVector(cloud, scan);
+        // build network input
+        net_input = imgseg._doProjection(scan, cloud->width*cloud->height,
+                                         &rgs, &xps, &yps);
+        for(int i = 0; i<xps.size(); i++){
+            // std::cerr << "Setting pixel y = " << yps[i] << " x = " << xps[i] << " to " << rgs[i] << "\n";
+            // SLOAM DEFAULT VERSION
+            range_image_float.at<float>(yps[i], xps[i]) = rgs[i];
+        }
+        // create visible network input
+        range_image_float.convertTo(range_image,CV_8U);
 
-//    cv::imshow("hesaiImages", hesaiseg._hesaiImages.range_resized_);
-//    cv::waitKey(0);
-    // hesai cloud needs to become padded
-    hesaiseg.hesaiPointcloudToImage(*cloud, hesaiseg._hesaiImages, padded_cloud);
-
-//    imgseg.cloudToCloudVector(cloud, scan);
-    hesaiseg.cloudToCloudVector(padded_cloud, scan);
-
-
-    // build network input
-    net_input = hesaiseg._doHesaiProjection(hesaiseg._hesaiImages);
-//    net_input = imgseg._doProjection(scan, cloud->width*cloud->height, &rgs, &xps, &yps);
-    for(int i = 0; i<xps.size(); i++){
-        std::cerr << "Setting pixel y = " << yps[i] << " x = " << xps[i] << " to " << rgs[i] << "\n";
-        // SLOAM DEFAULT VERSION
-        // range_image_float.at<float>(yps[i], xps[i]) = rgs[i];
+        // build mask image from network input
+        imgseg.runNetwork(net_input, mask_image);
     }
-    std::cerr << " HELLOOO \n";
-    std::cerr << " HELLOOO2 \n";
-    // create visible network input
-//    range_image_float.convertTo(range_image,CV_8U);
-    std::cerr << " HELLOOO 3\n";
-
-    // build mask image from network input
-//    imgseg.runNetwork(net_input, mask_image);
-    hesaiseg.runNetwork(net_input, mask_image);
     maskImgViz(mask_image);
 
-
+    //    std::cerr << " HELLOOO \n";
+    //    std::cerr << " HELLOOO2 \n";
+    //    std::cerr << " HELLOOO 3\n";
 
 }
