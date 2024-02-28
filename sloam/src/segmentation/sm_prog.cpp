@@ -91,7 +91,7 @@ int main() {
     cv::waitKey(0);
 
     // build mask image from network input
-    //imgseg.runNetwork(net_input, mask_image);
+    imgseg.runNetwork(net_input, mask_image);
 
     maskImgViz(mask_image);
   } catch (const Ort::Exception& e) {
