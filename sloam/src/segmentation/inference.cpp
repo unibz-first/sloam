@@ -94,52 +94,50 @@ void Segmentation::initializeImages(){
     _hesaiImages.mask_ = cv::Mat::zeros(32, 2000, CV_8U);
 }
 
-void Segmentation::hesaiPointcloudToImage(
-        const HesaiPointCloud& cloud, HesaiImages& hesaiImages, CloudT::Ptr& padded_cloud) const {
-        // cv::Mat& range_image,
-        // cv::Mat& intensity_image,
-        // // cv::Mat& intens_img_resized,
-        // cv::Mat& range_img_precise,
-        // cv::Mat& range_img_resized) const{
-
-    size_t counter = 0;
-    for(int i =0; i < hesaiImages.range_.cols; i++){
-        for(std::uint16_t j=0; j < hesaiImages.range_.rows; j++){
-            if(cloud.points[counter].ring == j){
-                double range = std::sqrt(cloud.points[counter].x*cloud.points[counter].x +
-                                         cloud.points[counter].y*cloud.points[counter].y +
-                                         cloud.points[counter].z*cloud.points[counter].z);
-                std::uint8_t range_pixel = ((range - 0.05) / (120.0 - 0.05)) * 255;
-                // populate cv::Mat's w range & intensity vals
-                hesaiImages.range_.at<std::uint8_t>((int)j,i) = range_pixel;
-                hesaiImages.intensity_.at<std::uint8_t>(j,i) = cloud.points[counter].intensity;
-                hesaiImages.range_precise_.at<double>(j,i) = range;
-                PointT p;
-                pcl::copyPoint(cloud.points[counter],p);
-//                std::cout << "x,y,z: " << p.x << "," << p.y << "," << p.z << std::endl;
-                padded_cloud->points.push_back(p);
-                counter++; // goes here.
-            } else {
-                // TODO: replace with the last pixel value?
-                hesaiImages.range_.at<std::uint8_t>(j,i) = 0;
-                hesaiImages.intensity_.at<std::uint8_t>(j,i) = 0;
-                hesaiImages.range_precise_.at<double>(j,i) = 0.0;
-                padded_cloud->points.push_back(PointT());
-            }
-        }
+void Segmentation::hesaiPointcloudToImage(const HesaiPointCloud& cloud,
+                                          HesaiImages& hesaiImages,
+                                          CloudT::Ptr& padded_cloud) const {
+  size_t counter = 0;
+  for (int i = 0; i < hesaiImages.range_.cols; i++) {
+    for (std::uint16_t j = 0; j < hesaiImages.range_.rows; j++) {
+      if (cloud.points[counter].ring == j) {
+        double range =
+            std::sqrt(cloud.points[counter].x * cloud.points[counter].x +
+                      cloud.points[counter].y * cloud.points[counter].y +
+                      cloud.points[counter].z * cloud.points[counter].z);
+        std::uint8_t range_pixel = ((range - 0.05) / (120.0 - 0.05)) * 255;
+        // populate cv::Mat's w range & intensity vals
+        hesaiImages.range_.at<std::uint8_t>((int)j, i) = range_pixel;
+        hesaiImages.intensity_.at<std::uint8_t>(j, i) =
+            cloud.points[counter].intensity;
+        hesaiImages.range_precise_.at<double>(j, i) = range;
+        PointT p;
+        pcl::copyPoint(cloud.points[counter], p);
+        //                std::cout << "x,y,z: " << p.x << "," << p.y << "," <<
+        //                p.z << std::endl;
+        padded_cloud->points.push_back(p);
+        counter++;  // goes here.
+      } else {
+        // TODO: replace with the last pixel value?
+        hesaiImages.range_.at<std::uint8_t>(j, i) = 0;
+        hesaiImages.intensity_.at<std::uint8_t>(j, i) = 0;
+        hesaiImages.range_precise_.at<double>(j, i) = 0.0;
+        padded_cloud->points.push_back(PointT());
+      }
     }
-    cv::resize(hesaiImages.range_precise_, hesaiImages.range_resized_,
-               hesaiImages.range_resized_.size(), 0, 0, cv::INTER_NEAREST);
-    std::cerr << "resized image \n";
-    // critical for ONNX network
-    hesaiImages.range_resized_.convertTo(hesaiImages.range_resized_float_, CV_32F);
-    std::cerr << "resized image to float \n";
-    hesaiImages.range_resized_.convertTo(hesaiImages.range_resized_show_, CV_8U);
-    std::cerr << "resized image to 8bit \n";
-    cv::imshow("resized range", hesaiImages.range_resized_show_);
-    cv::waitKey(0);
+  }
+  cv::resize(hesaiImages.range_precise_, hesaiImages.range_resized_,
+             hesaiImages.range_resized_.size(), 0, 0, cv::INTER_NEAREST);
+  std::cerr << "resized image \n";
+  // critical for ONNX network
+  hesaiImages.range_resized_.convertTo(hesaiImages.range_resized_float_,
+                                       CV_32F);
+  std::cerr << "resized image to float \n";
+  hesaiImages.range_resized_.convertTo(hesaiImages.range_resized_show_, CV_8U);
+  std::cerr << "resized image to 8bit \n";
+  cv::imshow("resized range", hesaiImages.range_resized_show_);
+  cv::waitKey(0);
 }
-
 
 NetworkInput Segmentation::_doHesaiProjection(
         const HesaiImages& hesaiImages,
