@@ -484,7 +484,7 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 }
 
 void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg){
-  size_t channel_offset = 2048*64;//_img_w * _img_h;
+  size_t channel_offset = _img_w * _img_h;
   unsigned char _n_classes = 3;
   std::vector<unsigned char> max;
 
