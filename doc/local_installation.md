@@ -32,7 +32,7 @@ apt-get update && apt-get install -y \
 git clone https://github.com/fmtlib/fmt.git && \
     cd fmt && \
     git checkout 215f21a0382d325efa66df53fbfbfddb020a2234 && \
-    mkdir fmt/build && cd fmt/build && \
+    mkdir build && cd build && \
     cmake .. && make && make install
 ```
 
@@ -73,11 +73,12 @@ cd /tmp && \
         --build_shared_lib \
         --build_wheel \
         --skip_tests \
-        --parallel 3 && \
+        --parallel 8 && \
     cd build/Linux/RelWithDebInfo && \
     make install && \
     pip install dist/* && cd ..
 ```
+change `--parallel n` as you would `make -jn` to speed process
 
 ### ROS Dependencies
 ```
