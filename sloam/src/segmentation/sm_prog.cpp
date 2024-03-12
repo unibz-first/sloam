@@ -47,13 +47,15 @@ using CloudXYZI = pcl::PointCloud<pcl::PointXYZI>;
 
 int main() {
   std::string home_dir = getenv("HOME");
-  std::string pcd_dir = home_dir + "/region_growing_test/";
-  std::string pcdfile = pcd_dir + "hesai_cloud_organised.pcd";
+  std::string seq_dir = home_dir + "/repos/lidar-bonnetal/digikittiforest/sequences";
+  std::string pcd_dir = seq_dir + "/00/point_clouds/";
+  std::string pcdfile = pcd_dir + "cloud_1693566299_538213000.pcd";
+  std::string model_path = home_dir + "/Downloads/darknet21pp_hpc.onnx";   // /logs/squeezenetV2_1_1_30_2k.onnx";
 
   try {
-    seg::Segmentation imgseg("/home/mcamurri/Downloads/model2.onnx", 15, -16,
+    seg::Segmentation imgseg(model_path, 15, -16,
                              2000, 32, 1, false);
-
+// create cloud
     CloudXYZI::Ptr cloud = pcl::make_shared<CloudXYZI>();
 
     std::cout << "Loading " << pcdfile << " ... \n";
@@ -74,7 +76,8 @@ int main() {
     std::vector<float> rgs;
     std::vector<size_t> xps, yps;
     std::vector<float> scan;
-
+    
+// creating CloudVector
     imgseg.cloudToCloudVector(cloud, scan);
     // build network input
     net_input = imgseg._doProjection(scan, cloud->width * cloud->height, &rgs,
