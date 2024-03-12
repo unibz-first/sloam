@@ -206,9 +206,9 @@ NetworkInput Segmentation::sortOrder(int h, int w,
                std::vector<size_t>* yps){
     // order in decreasing depth
     int num_points = h*w;
+    std::cerr << "sorting all your base \n";
     std::cerr << "h: " << h << "\n";
     std::cerr << "w: " << w << "\n";
-    std::cerr << "got in the function \n";
 //    NetworkInput range_image;
 
     std::vector<size_t> orders;
@@ -237,6 +237,7 @@ NetworkInput Segmentation::sortOrder(int h, int w,
         std::vector<float> input = {(*rgs)[idx]};
         inputs.push_back(input);
     }
+    // best easter egg typo ever, thx Jens. github.com/PRBonn/lidar-bonnetal
     // assing to images
     std::cerr << "Sizes: rgs=" << (rgs != nullptr ? rgs->size() : 0)
               << ", xps=" << (xps != nullptr ? xps->size() : 0)
@@ -334,41 +335,41 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
   }
   std::cerr << "h: " << _img_h << "\n";
   std::cerr << "w: " << _img_w << "\n";
-  NetworkInput range_image = sortOrder(_img_h, _img_w, rgs, xps, yps);
+//  NetworkInput range_image = sortOrder(_img_h, _img_w, rgs, xps, yps);
 
-//  // stope a copy in original order
-//  proj_xs = proj_xs_tmp;
-//  proj_ys = proj_ys_tmp;
+  // stope a copy in original order
+  proj_xs = proj_xs_tmp;
+  proj_ys = proj_ys_tmp;
 
-//  // order in decreasing depth
-//  std::vector<size_t> orders = sort_indexes(ranges);
-//  std::vector<float> sorted_proj_xs;
-//  sorted_proj_xs.reserve(num_points);
-//  std::vector<float> sorted_proj_ys;
-//  sorted_proj_ys.reserve(num_points);
-//  std::vector<std::vector<float>> inputs;
-//  inputs.reserve(num_points);
+  // order in decreasing depth
+  std::vector<size_t> orders = sort_indexes(ranges);
+  std::vector<float> sorted_proj_xs;
+  sorted_proj_xs.reserve(num_points);
+  std::vector<float> sorted_proj_ys;
+  sorted_proj_ys.reserve(num_points);
+  std::vector<std::vector<float>> inputs;
+  inputs.reserve(num_points);
 
-//  for (size_t idx : orders){
-//    sorted_proj_xs.push_back(proj_xs[idx]);
-//    sorted_proj_ys.push_back(proj_ys[idx]);
-//    // std::vector<float> input = {ranges[idx], xs[idx], ys[idx], zs[idx], intensitys[idx]};
-//    // std::vector<float> input = {ranges[idx], zs[idx], xs[idx], ys[idx], intensitys[idx]};
-//    std::vector<float> input = {ranges[idx]};
-//    inputs.push_back(input);
-//  }
+  for (size_t idx : orders){
+    sorted_proj_xs.push_back(proj_xs[idx]);
+    sorted_proj_ys.push_back(proj_ys[idx]);
+    // std::vector<float> input = {ranges[idx], xs[idx], ys[idx], zs[idx], intensitys[idx]};
+    // std::vector<float> input = {ranges[idx], zs[idx], xs[idx], ys[idx], intensitys[idx]};
+    std::vector<float> input = {ranges[idx]};
+    inputs.push_back(input);
+  }
 
-//  // assing to images
+  // assing to images
 //  std::vector<std::vector<float>> range_image(_img_w * _img_h);
+    NetworkInput range_image(_img_w * _img_h);
+  // zero initialize
+  for (uint32_t i = 0; i < range_image.size(); ++i) {
+      range_image[i] = invalid_input;
+  }
 
-//  // zero initialize
-//  for (uint32_t i = 0; i < range_image.size(); ++i) {
-//      range_image[i] = invalid_input;
-//  }
-
-//  for (uint32_t i = 0; i < inputs.size(); ++i) {
-//    range_image[int(sorted_proj_ys[i] * _img_w + sorted_proj_xs[i])] = inputs[i];
-//  }
+  for (uint32_t i = 0; i < inputs.size(); ++i) {
+    range_image[int(sorted_proj_ys[i] * _img_w + sorted_proj_xs[i])] = inputs[i];
+  }
 
   return range_image; //DANGER: NOT TO BE CONFUSED WITH THE cv::Mat HesaiImages.{range_, intensity_, etc.}
 }
@@ -388,13 +389,16 @@ void Segmentation::_makeTensor(
 
   int channel_offset = _img_h * _img_w;
   bool all_zeros = false;
+  int ctr = 0;
 
   for (uint32_t pixel_id = 0; pixel_id < projected_data.size(); pixel_id++){
     // check if the pixel is invalid
     all_zeros = std::all_of(projected_data[pixel_id].begin(), projected_data[pixel_id].end(), [](int i) { return ((i==0.0f) || (isnan(i))); });
     if (all_zeros) {
       invalid_idxs.push_back(pixel_id);
+      ctr +=1;
     }
+    //std::cout << "projected_data[pixel_id].data() = " << projected_data[pixel_id].data() << std::endl;
     for (int i = 0; i < _img_d; i++) {
       // normalize the data
       if (!all_zeros) {
@@ -406,6 +410,7 @@ void Segmentation::_makeTensor(
       tensor[buffer_idx] = projected_data[pixel_id][i];
     }
   }
+  std::cerr<< "all_zeros = true for " << ctr << " pixels \n";
 }
 
 void Segmentation::_destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud){
@@ -438,18 +443,23 @@ void Segmentation::_destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud)
   }
 }
 
-void Segmentation::maskCloud(const Cloud::Ptr cloud,
+void Segmentation::maskCloud(const CloudT::Ptr cloud,
                               cv::Mat mask,
-                              Cloud::Ptr& outCloud,
+                              CloudT::Ptr& outCloud,
                               unsigned char val,
                               bool dense) {
 
 
-  Cloud::Ptr tempCloud(new Cloud);
-  size_t numPoints = mask.rows * mask.cols;
-  assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
+//  Cloud::Ptr tempCloud(new Cloud);
+    CloudT::Ptr tempCloud(new CloudT);
+    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the tempCloud!");
 
+//    CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
+    size_t numPoints = mask.rows * mask.cols;
+  assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
+  ROS_INFO_STREAM("Number of points: " << numPoints);
   for (int i = 0; i < numPoints; i++) {
+      // this won't work if using _yps, _xps
     size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
     unsigned char m = mask.data[proj_idx * sizeof(unsigned char)];
 
@@ -463,6 +473,7 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   }
 
   pcl::copyPointCloud(*tempCloud, *outCloud);
+
   if(dense){
     // destagger. TODO: Do this with mask
     // Adapted from Chao's driver
@@ -479,8 +490,13 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
     outCloud->height = 1;
     outCloud->is_dense = false;
   }
+// test uncomment
+  std::cerr << "++++++++++++++++++++++++++++++++++++++ 2.2\n";
+  std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
+  ROS_INFO_STREAM("Number of points: " << numPoints);
+  std::cout << "points in outCloud: " << outCloud->points.size() << "\n";
+  outCloud->header = cloud->header;
 
-  // outCloud->header = cloud->header;
 }
 
 void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg){
@@ -599,6 +615,8 @@ void Segmentation::cloudToCloudVector(const Cloud::Ptr &cloud, std::vector<float
       cloudVector.push_back(point.intensity);
     }
     std::cout << "cloudVector of size: " << cloudVector.size() << std::endl;
+    std::cout << "cloudVector.front(): " << cloudVector.front() << std::endl;
+    std::cout << "cloudVector.back(): " << cloudVector.back() << std::endl;
 }
 
 void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
@@ -610,14 +628,32 @@ void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
       std::cout << "Projecting data" << std::endl;
       _timer.tic();
     }
-    netInput = _doProjection(cloudVector, cloud->width * cloud->height);
-    // int dims[] = {64,2048};
-    // std::vector<float> flattened_inp;
-    // for (int i = 0; i < _img_h*_img_w; ++i) {
-    //   size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
-    //   flattened_inp.push_back(netInput[proj_idx][0]);
-    // }
-    // cv::Mat result = cv::Mat(2, dims, CV_32F, flattened_inp.data());
+    // added rgs, xps, and yps projected indices stored from sortOrder()
+    netInput = _doProjection(cloudVector, cloud->width * cloud->height, &_rgs);//,
+//                             &_rgs, &_xps, &_yps);
+
+    // taken from sm_prog. create cv::Mat objs
+    // TODO: replace w/ _HesaiImages struct, make lightweight
+    cv::Size s(_img_h,_img_w);
+    cv::Mat range_image = cv::Mat(s, CV_8U);
+    cv::Mat range_image_float = cv::Mat(s, CV_32F);
+    cv::Mat mask_image(s, CV_8U);
+    std::cerr << "cv::Mat imgs created, with:\n";
+    std::cerr << "height = " << s.height << "\n";
+    std::cerr << "width " << s.width << "\n";
+
+    // fill range images w projected vals.
+//   for (int i = 0; i < _img_h*_img_w; ++i) {
+//       range_image_float.at<float>(proj_ys[i],proj_xs[i]) = _rgs[i];
+//   }
+//   range_image_float *= 255.0/50.5;
+//   range_image_float.convertTo(range_image, CV_8U);
+
+//    std::vector<float> flattened_inp;
+//    for (int i = 0; i < _img_h*_img_w; ++i) {
+//        size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
+//        flattened_inp.push_back(netInput[proj_idx][0]);
+//    }
     // cv::FileStorage file("/opt/bags/inf/inp.ext", cv::FileStorage::WRITE);
     // file << "mat" << result;
 
@@ -678,7 +714,9 @@ void Segmentation::runNetwork(NetworkInput &netInput, cv::Mat &maskImg){
 
 void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
     NetworkInput ni;
+    ROS_INFO_STREAM("Segmentation::run 1");
     cloudToNetworkInput(cloud, ni);
+    ROS_INFO_STREAM("Segmentation::run 2");
     runNetwork(ni, maskImg);
 }
 

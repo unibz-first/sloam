@@ -134,6 +134,8 @@ private:
     Timer _timer;
     bool _verbose = true;
 
+    std::vector<float> _rgs;
+    std::vector<size_t> _xps, _yps; // replacements for proj_xs, proj_ys
     std::vector<float> proj_xs; // store a copy in original order
     std::vector<float> proj_ys;
 

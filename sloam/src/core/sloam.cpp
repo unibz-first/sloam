@@ -1,5 +1,6 @@
 ﻿#include <sloam.h>
 
+mtx scgf_lock;
 namespace sloam
 {
 
@@ -334,10 +335,14 @@ namespace sloam
     origin.x = pose.translation()[0];
     origin.y = pose.translation()[1];
     origin.z = pose.translation()[2];
-
+    std::cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \n";
+    std::cout << "origin: [" << origin.x << ", " <<
+                 origin.y << ", " << origin.z << "]\n";
     // Add points into the corresponding bin
+    int pushbackcount = 0;
     for (const PointT &p : points)
     {
+//        std::cerr << "IN looooop+++++++++++++++++++++++++++++++++++++++++++++++ \n";
       // Sort into the multiarray grid
       Scalar pointRadius = euclideanDist2D(origin, p);
       if (pointRadius < fmParams_.maxGroundLidarDist &&
@@ -355,22 +360,43 @@ namespace sloam
             std::max(0, std::min(pointRadiiBin, fmParams_.groundRadiiBins - 1));
         pointThetaBin =
             std::max(0, std::min(pointThetaBin, fmParams_.groundThetaBins - 1));
-        scgf[pointRadiiBin][pointThetaBin].push_back(p);
+        if (pointRadiiBin >= 0 && pointRadiiBin < scgf.shape()[0] &&
+                pointThetaBin >= 0 && pointThetaBin < scgf.shape()[1]) {
+scgf_lock.lock();
+            scgf[pointRadiiBin][pointThetaBin].push_back(p);
+scgf_lock.unlock();
+            pushbackcount++;
+//            std::cerr << "pushd baaack: " << pushbackcount << " times +++++++++++++ \n";
+            std::cerr << "radiiBin,thetaBin: " << pointRadiiBin << ","
+                      << pointThetaBin << "+no:"<< pushbackcount << "++++++++++++++\n";
+        } else {
+            std::cerr << "Index out bounds!!! " << pointRadiiBin << ","
+                      << pointThetaBin << "++++++++++++++++++++++\n";
+        }
+
+        // push_back here posisble source of double-linked list err.
       }
+
     }
+    std::cerr << "OUT DA LOOP++++++++++++++++++++++++++++++++++++++++++++++++++ \n";
     // Retain the bottom k% of points in each cell
     for (int i = 0; i < scgf.shape()[0]; i++)
     {
+        std::cerr << "++++++SCGF TIME++++++++++++++++++++++++++++++++++++++++ \n";
       for (int j = 0; j < scgf.shape()[1]; j++)
       {
         if (scgf[i][j].size() > 0)
         {
+            std::cerr << "+scgf size: ++++++ " << scgf[i][j].size() << " +++++++ \n";
           double retainNum = (1 / fmParams_.groundRetainThresh);
           if (retainNum < scgf[i][j].size())
           {
             // Bottom 10%
+              std::cerr << "BOTTOM 10% scgf size: ++++++ " << scgf[i][j].size() << " +++++++ \n";
             int bottomIdx =
                 int(scgf[i][j].size() / retainNum);
+            std::cerr << "ground Retain Thresh : ++++++ " << retainNum << " +++++++ \n";
+
 
             // Sort by z value
             std::sort(
@@ -385,7 +411,7 @@ namespace sloam
     }
   }
 
-  void sloam::computeModels(SloamInput &in, std::vector<Cylinder> &landmarks, std::vector<Plane> &planes)
+  void sloam::computeModels(const SloamInput &in, std::vector<Cylinder> &landmarks, std::vector<Plane> &planes)
   {
     boost::multi_array<VectorType, 2> scgf(
         boost::extents[fmParams_.groundRadiiBins][fmParams_.groundThetaBins]);

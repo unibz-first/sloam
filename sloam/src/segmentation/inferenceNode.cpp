@@ -105,19 +105,27 @@ void SegNode::SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
     return;
 
   CloudT::Ptr cloud(new CloudT);
+  std::cerr << "0+++++++++++++++++++++++++++++ \n";
   pcl::fromROSMsg(*cloudMsg, *cloud);
+  std::cerr << "1+++++++++++++++++++++++++++++\n";
   pcl_conversions::toPCL(ros::Time::now(), cloud->header.stamp);
+  std::cerr << "2+++++++++++++++++++++++++++++\n";
 
   // RUN SEGMENTATION
   cv::Mat rMask = cv::Mat::zeros(cloudMsg->height, cloudMsg->width, CV_8U);
+  std::cerr << "3+++++++++++++++++++++++++++++\n";
   segmentator_->run(cloud, rMask);
   // cv::imwrite("mask.jpg", rMask);
+  std::cerr << "4+++++++++++++++++++++++++++++\n";
 
   CloudT::Ptr groundCloud(new CloudT());
   segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
+  std::cerr << "5+++++++++++++++++++++++++++++\n";
 
   CloudT::Ptr treeCloud(new CloudT);
   segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
+  std::cerr << "6+++++++++++++++++++++++++++++\n";
+
 
   std::vector<std::vector<TreeVertex>> landmarks;
   graphDetector_.computeGraph(cloud, treeCloud, landmarks);

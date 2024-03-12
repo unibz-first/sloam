@@ -186,14 +186,17 @@ namespace sloam
   bool SLOAMNode::runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
                                   SE3 &outPose, const cv::Mat& rMask, SloamInput& sloamIn, SloamOutput& sloamOut) {
     CloudT::Ptr groundCloud(new CloudT());
+    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the groundCloud init!");
     segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
-
+    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the groundCloud!");
     CloudT::Ptr treeCloud(new CloudT);
+    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the treeCloud init!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
+    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the treeCloud!");
 
     groundCloud->header = cloud->header;
     sloamIn.groundCloud = groundCloud;
-    ROS_DEBUG_STREAM("Num ground features available: " << groundCloud->width);
+    ROS_WARN_STREAM("Num ground features available: " << groundCloud->width);
 
     // Trellis graph instance segmentation
     graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
@@ -286,7 +289,20 @@ namespace sloam
     ROS_INFO_STREAM("Entering Callback. Lidar data stamp: " << stamp);
     // RUN SEGMENTATION
     cv::Mat rMask = cv::Mat::zeros(cloud->height, cloud->width, CV_8U);
+    ROS_WARN_STREAM("cloud[h,w]: " << cloud->height << ", " << cloud->width);
     segmentator_->run(cloud, rMask);
+    // make 0,1 differentiable
+    cv::MatIterator_<uchar> it;
+    // create visible mask image
+    for (it = rMask.begin<uchar>(); it != rMask.end<uchar>(); ++it) {
+      if ((*it) == 1) {
+        (*it) = 127;
+      }
+    }
+//    cv::imshow("mask", mask_img);
+//    cv::waitKey(0);
+    cv::imwrite("/home/mchang/Downloads/rMask.png", rMask);
+    // cv::waitKey(1);
     return runSegmentation(cloud, stamp, outPose, rMask, sloamIn, sloamOut);
   }
 
