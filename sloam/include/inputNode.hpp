@@ -23,7 +23,7 @@ class InputManager
 
   enum
   {
-      CLOUD_TOO_OLD,
+      CLOUD_TOO_OLD = 0,
       CLOUD_TOO_NEW,
       CLOUD_FOUND
   };
@@ -34,6 +34,8 @@ public:
 
 
 private:
+
+    int FindHesaiCloud(const ros::Time stamp, CloudT::Ptr& cloud_out);
     void OdomCb_(const nav_msgs::OdometryConstPtr &odom_msg);
 
     template<typename PT>

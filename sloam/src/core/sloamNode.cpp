@@ -75,8 +75,8 @@ namespace sloam
     nh_.param<std::string>("seg_model_path", modelFilepath, "");
     ROS_DEBUG_STREAM("MODEL PATH: " << modelFilepath);
     float fov = nh_.param("seg_lidar_fov", 22.5);
-    int lidar_w = nh_.param("seg_lidar_w", 2048);
-    int lidar_h = nh_.param("seg_lidar_h", 64);
+    lidar_w = nh_.param("seg_lidar_w", 2048);
+    lidar_h = nh_.param("seg_lidar_h", 64);
     bool do_destagger = nh_.param("do_destagger", true);
     auto temp_seg = boost::make_shared<seg::Segmentation>(modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
     segmentator_ = std::move(temp_seg);
@@ -293,15 +293,18 @@ namespace sloam
     segmentator_->run(cloud, rMask);
     // make 0,1 differentiable
     cv::MatIterator_<uchar> it;
+    cv::Mat visible_mask;
+    rMask.copyTo(visible_mask);
+
     // create visible mask image
-    for (it = rMask.begin<uchar>(); it != rMask.end<uchar>(); ++it) {
+    for (it = visible_mask.begin<uchar>(); it != visible_mask.end<uchar>(); ++it) {
       if ((*it) == 1) {
         (*it) = 127;
       }
     }
-//    cv::imshow("mask", mask_img);
+//    cv::imshow("mask", visible_mask);
 //    cv::waitKey(0);
-    cv::imwrite("/home/mchang/Downloads/rMask.png", rMask);
+    cv::imwrite("/home/mchang/Downloads/rMask.png", visible_mask);
     // cv::waitKey(1);
     return runSegmentation(cloud, stamp, outPose, rMask, sloamIn, sloamOut);
   }
