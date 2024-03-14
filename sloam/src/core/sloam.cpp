@@ -1,6 +1,5 @@
 ﻿#include <sloam.h>
 
-mtx scgf_lock;
 namespace sloam
 {
 
@@ -362,9 +361,7 @@ namespace sloam
             std::max(0, std::min(pointThetaBin, fmParams_.groundThetaBins - 1));
         if (pointRadiiBin >= 0 && pointRadiiBin < scgf.shape()[0] &&
                 pointThetaBin >= 0 && pointThetaBin < scgf.shape()[1]) {
-scgf_lock.lock();
             scgf[pointRadiiBin][pointThetaBin].push_back(p);
-scgf_lock.unlock();
             pushbackcount++;
 //            std::cerr << "pushd baaack: " << pushbackcount << " times +++++++++++++ \n";
             std::cerr << "radiiBin,thetaBin: " << pointRadiiBin << ","

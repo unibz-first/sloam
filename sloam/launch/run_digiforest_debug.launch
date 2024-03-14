@@ -7,6 +7,14 @@
       <arg name="rviz" value="false" />
       <arg name="simulation" value="false" />
     </include>
+<!--    <include file="$(find lidar_undistortion_ros)/launch/hesai_undistortion.launch">
+      <arg name="rviz" value="false" />
+      <arg name="pose_topic" value="/vilens/pose_propagated" /> 
+      <arg name="base_frame_id" value ="base" />
+      <arg name="fixed_frame_id" value="odom_vilens" />
+      <arg name="lidar_frame_id" value="pandar" />
+    </include>-->
+      <!--arg name="pose_topic" value="/vilens/state_propagated"? -->
 
     <include file="$(find sloam)/launch/sloam_debug.launch"/>
 </launch>

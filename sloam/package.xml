@@ -31,6 +31,7 @@
   <depend>tf</depend>
   <depend>pcl_ros</depend>
   <depend>pcl_conversions</depend>
+  <depend>lidar_undistortion_ros</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

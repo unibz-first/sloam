@@ -26,7 +26,7 @@ sloam:
   min_sloam_z: -500.0 # min height of robot for triggering sloam. If you get the error msg "Quad is too low, will not call sloam", reduce this param. 
   map_frame_id: map 
   odom_frame_id: odom_vilens
-  robot_frame_id: base
+  robot_frame_id: pandar  # old: base
   # TODO: include sloam/sloam/models/ dir, commit to remote origin unibz-first fork
   seg_model_path: $(env HOME)/Downloads/darknet21pp_hpc.onnx # path to segmentation model
   seg_lidar_fov: 31 # lidar FOV
@@ -35,6 +35,6 @@ sloam:
   cloud_topic: /hesai/pandar
   odom_topic: /vilens/odom
   debug_mode: true
-  use_hesai: false
+  use_hesai: true
   do_destagger: false
   #use_hesai: true
