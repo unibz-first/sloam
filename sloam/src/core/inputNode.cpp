@@ -10,6 +10,7 @@
 #include <definitions.h>
 #include <sloamNode.h>
 #include "../inputNode.hpp"
+#include "../helpers/hesai_point_types.h"
 
 
 
@@ -139,37 +140,75 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
                                   CloudT::Ptr &cloud_out)
 {
   HesaiPointCloud::Ptr hesai_cloud = pcl::make_shared<HesaiPointCloud>();
-//    HesaiPointCloud::Ptr hesai_cloud(new HesaiPointCloud);
+  // TODO: change templating to CloudT instead of PointT?
     // cloud is not dense because it might contain invalid points
   if (!cloud_out) {
-      std::cerr << "++++++++++++++++++++++++++++++++++++00";
+      std::cerr << "no cloud_out CloudT::Ptr +++++++++++++++++++00\n";
   }
   cloud_out->is_dense = false;
-  std::cerr << "++++++++++++++++++++++++++++++++++++0";
+  std::cerr << "++++++++++++++++++++++++++++++++++++0\n";
   int r = FindPC(stamp, hesai_cloud);
-  std::cerr << "++++++++++++++++++++++++++++++++++++1";
+  std::cerr << "++++++++++++++++++++++++++++++++++++1\n";
+  std::cerr << r << " returned\n";
   if(r < CLOUD_FOUND) {
-               std::cerr << "++++++++++++++++++++++++++++++++++++2";
-
+      std::cerr << "++++++++++++++++++++++++++++++++++++2\n";
+      std::cerr << r << " is return\n";
     return r;
   }
+  std::cerr << r << " means CLOUD_FOUND!!!!!!!!!!!!!!!\n";
 
-  size_t counter = 0;
+  size_t ctr = 0;
+  size_t null_ctr = 0;
+  std::cerr << sloam_->lidarH() << ", " << sloam_->lidarW() << "= [h,w] \n";
   for (int i = 0; i < sloam_->lidarW(); i++) {
-    for (int j = 0; j < sloam_->lidarH(); j++) {
-      if (hesai_cloud->points[counter].ring == j) {
-        PointT p;
-        pcl::copyPoint(cloud_out->points[counter], p);
+    for (int j = 0; j < sloam_->lidarH(); j++) {           
+//        std::cerr << hesai_cloud->points[ctr].ring << ", " <<
+//                     hesai_cloud->points[ctr].x << ", " <<
+//                     hesai_cloud->points[ctr].y << ", " <<
+//                     hesai_cloud->points[ctr].z << ", " <<
+//                     hesai_cloud->points[ctr].intensity << ", " <<
+//                     ctr << ", " << i << ", " << j <<
+//                     "= [ring,x,y,z,intensity,i,j] \n";
+      if (hesai_cloud->points[ctr].ring == j) {
+          PointT p;
+//              std::cerr << p.x << ", " <<
+//                           p.y << ", " <<
+//                           p.z << ", " <<
+//                           p.intensity << ", " <<
+//                           ctr << ", " << i << ", " << j <<
+//                           "= p[x,y,z,intensity,counter,i,j] \n";
+//              std::cerr << i << " pre-copy above, post-copy below ++++++++++++++++++++++\n";
+//              //
+              pcl::copyPoint(hesai_cloud->points[ctr], p);
+
+              std::cerr << p.x << ", " <<
+                           p.y << ", " <<
+                           p.z << ", " <<
+                           p.intensity << ", " <<
+                           ctr << ", " << i << ", " << j <<
+                           "= p[x,y,z,intensity,counter,i,j] \n";
+              // std::cerr << "index out of range: " << ctr << "\n";
+              std::cerr << "cloud_out->points.size: " << cloud_out->points.size() << "\n";
+              std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size() << "\n";
+
+
         cloud_out->points.push_back(p);
-        counter++;  // goes here.
+        ctr++;
       } else {
         // add an invalid point where there is a missing "pixel"
         PointT p;
         p.x = std::numeric_limits<float>::quiet_NaN();
         p.y = p.x;
         p.z = p.x;
+        p.intensity = p.x;
         cloud_out->points.push_back(PointT(std::numeric_limits<float>::quiet_NaN()));
+        null_ctr++;
       }
+      std::cerr << "null_ctr = " << null_ctr << "\n";
+      size_t null_check = cloud_out->points.size() - hesai_cloud->points.size();
+      std::cerr << "cloud_out - hesai_cloud = " <<
+                   cloud_out->points.size()-hesai_cloud->points.size() << "\n";
+      std::cerr << "null_check = " << null_check << "\n";
     }
   }
   return r;
