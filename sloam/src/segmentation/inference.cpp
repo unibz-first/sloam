@@ -451,7 +451,7 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
 
 
 //  Cloud::Ptr tempCloud(new Cloud);
-    CloudT::Ptr tempCloud(new CloudT);
+    CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
     ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the tempCloud!");
 
 //    CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
@@ -461,6 +461,8 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
   for (int i = 0; i < numPoints; i++) {
       // this won't work if using _yps, _xps
     size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
+    std::cerr << "[i, proj_xs[i], proj_ys]: [" << i <<
+                 ", " << proj_xs[i] << ", " << proj_ys << "]\n";
     unsigned char m = mask.data[proj_idx * sizeof(unsigned char)];
 
     if(m == val){
@@ -712,7 +714,7 @@ void Segmentation::runNetwork(NetworkInput &netInput, cv::Mat &maskImg){
     }
 }
 
-void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
+void Segmentation::run(const CloudT::Ptr cloud, cv::Mat& maskImg){
     NetworkInput ni;
     ROS_INFO_STREAM("Segmentation::run 1");
     cloudToNetworkInput(cloud, ni);
@@ -720,13 +722,13 @@ void Segmentation::run(const Cloud::Ptr cloud, cv::Mat& maskImg){
     runNetwork(ni, maskImg);
 }
 
-void Segmentation::run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg, CloudT::Ptr& padded_cloud){
-    NetworkInput ni;
-    ROS_INFO_STREAM("Segmentation::run 1");
-    cloudToNetworkInput(cloud, ni, padded_cloud);
-    ROS_INFO_STREAM("Segmentation::run 2");
-    runNetwork(ni, maskImg);
-}
+//void Segmentation::run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg, CloudT::Ptr& padded_cloud){
+//    NetworkInput ni;
+//    ROS_INFO_STREAM("Segmentation::run 1");
+//    cloudToNetworkInput(cloud, ni, padded_cloud);
+//    ROS_INFO_STREAM("Segmentation::run 2");
+//    runNetwork(ni, maskImg);
+//}
 
 void Segmentation::speedTest(const Cloud::Ptr cloud, size_t numTests){
     std::vector<float> cloudVector;

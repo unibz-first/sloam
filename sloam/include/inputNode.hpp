@@ -13,6 +13,8 @@
 class InputManager
 {
 #include "../helpers/definitions.h"
+#include "../helpers/hesai_point_types.h"
+
 
   struct StampedSE3 {
     StampedSE3(SE3 p, ros::Time s) : pose(p), stamp(s) {}
@@ -35,11 +37,16 @@ public:
 
 private:
 
-    int FindHesaiCloud(const ros::Time stamp, CloudT::Ptr& cloud_out);
     void OdomCb_(const nav_msgs::OdometryConstPtr &odom_msg);
 
+//    template<typename PT>
+//    int FindHesaiCloud(const ros::Time stamp, CloudT::Ptr& cloud_out);
+    //    non-templated bc needs to return specific thing to sloam...
+    int FindHesaiCloud(const ros::Time stamp, CloudT::Ptr &cloud_out);
+    // template bc sensor-agnostic
     template<typename PT>
-    int FindPC(const ros::Time stamp, boost::shared_ptr<pcl::PointCloud<PT>> cloud)
+    int FindPC(const ros::Time stamp, pcl::shared_ptr<pcl::PointCloud<PT>> &cloud)
+    // int FindPC(const ros::Time stamp, CloudT::Ptr& cloud)
     {
         if (pcQueue_.empty())
             return false;
@@ -59,6 +66,9 @@ private:
             }
             else
             {
+              for (const auto& field : pcQueue_.front()->fields){
+                ROS_DEBUG_STREAM("Field name:" << field.name);
+              }
                 pcl::fromROSMsg(*pcQueue_.front(), *cloud);
                 pcQueue_.pop();
                 ROS_DEBUG("Calling SLOAM");

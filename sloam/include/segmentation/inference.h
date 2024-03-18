@@ -79,8 +79,8 @@ class Segmentation {
 
     void runERF(cv::Mat& rImg, cv::Mat& maskImg);
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
-    void run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg,
-             CloudT::Ptr &padded_cloud);
+//    void run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg,
+//             CloudT::Ptr &padded_cloud);
 
     void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud,
                    unsigned char val, bool dense = false);

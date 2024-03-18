@@ -157,7 +157,7 @@ namespace sloam
 
   CloudT::Ptr SLOAMNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
   {
-    CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
+    CloudT::Ptr vtxCloud = pcl::make_shared<CloudT>();
     std::vector<float> color_values((int)landmarks.size());
     std::iota(std::begin(color_values), std::end(color_values), 1);
     std::random_device rd;
@@ -185,11 +185,11 @@ namespace sloam
 
   bool SLOAMNode::runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
                                   SE3 &outPose, const cv::Mat& rMask, SloamInput& sloamIn, SloamOutput& sloamOut) {
-    CloudT::Ptr groundCloud(new CloudT());
+    CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
     ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the groundCloud init!");
     segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
     ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the groundCloud!");
-    CloudT::Ptr treeCloud(new CloudT);
+    CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
     ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the treeCloud init!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
     ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the treeCloud!");
@@ -288,9 +288,11 @@ namespace sloam
     }
     ROS_INFO_STREAM("Entering Callback. Lidar data stamp: " << stamp);
     // RUN SEGMENTATION
-    cv::Mat rMask = cv::Mat::zeros(cloud->height, cloud->width, CV_8U);
-    ROS_WARN_STREAM("cloud[h,w]: " << cloud->height << ", " << cloud->width);
+    cv::Mat rMask = cv::Mat::zeros(lidar_h, lidar_w, CV_8U);
+
+    ROS_WARN_STREAM("rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
     segmentator_->run(cloud, rMask);
+
     // make 0,1 differentiable
     cv::MatIterator_<uchar> it;
     cv::Mat visible_mask;
