@@ -184,15 +184,16 @@ namespace sloam
   }
 
   bool SLOAMNode::runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
-                                  SE3 &outPose, const cv::Mat& rMask, SloamInput& sloamIn, SloamOutput& sloamOut) {
+                                  SE3 &outPose, const cv::Mat& rMask,
+                                  SloamInput& sloamIn, SloamOutput& sloamOut) {
     CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
-    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the groundCloud init!");
-    segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
-    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the groundCloud!");
+    ROS_INFO_STREAM("sloamNode.cpp groundCloud init'd");
+    segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
+    ROS_INFO_STREAM("sloamNode.cpp groundCloud filled");
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
-    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the treeCloud init!");
+    ROS_INFO_STREAM("sloamNode.cpp the treeCloud init'd!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
-    ROS_INFO_STREAM("heeeeeeeeeeeeeeeeeeeeres the treeCloud!");
+    ROS_INFO_STREAM("sloamNode.cpp treeCloud built");
 
     groundCloud->header = cloud->header;
     sloamIn.groundCloud = groundCloud;
@@ -290,7 +291,7 @@ namespace sloam
     // RUN SEGMENTATION
     cv::Mat rMask = cv::Mat::zeros(lidar_h, lidar_w, CV_8U);
 
-    ROS_WARN_STREAM("rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
+    ROS_WARN_STREAM("sloamNode.cpp run() rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
     segmentator_->run(cloud, rMask);
 
     // make 0,1 differentiable
@@ -311,31 +312,31 @@ namespace sloam
     return runSegmentation(cloud, stamp, outPose, rMask, sloamIn, sloamOut);
   }
 
-  bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
-                      HesaiPointCloud::Ptr cloud, ros::Time stamp,
-                      SE3 &outPose) {
-      SloamInput sloamIn;
-      SloamOutput sloamOut;
-      if(!prepSegmentation(initialGuess, prevKeyPose, sloamIn)){
-          return false;
-      }
-      ROS_INFO_STREAM("Entering Callback. Hesai lidar data stamp: " << stamp);
-      // RUN SEGMENTATION
-      cv::Mat rMask = cv::Mat::zeros(64, 2048, CV_8U);
-      cv::Mat rMaskScaled = cv::Mat::zeros(32, 2000, CV_8U);
-      CloudT::Ptr cloud_xyzi = boost::make_shared<CloudT>();
-      cloud_xyzi->header = cloud->header;
-      cloud_xyzi->is_dense = true;
-      cloud_xyzi->width = 2000;
-      cloud_xyzi->height = 32;
-      ROS_INFO_STREAM("Entering Callback2. Hesai lidar data stamp: " << stamp);
-      segmentator_->run(cloud, rMask, cloud_xyzi);
-      cv::resize(rMask, rMaskScaled, rMaskScaled.size(), 0, 0,
-                 cv::INTER_NEAREST);
-      ROS_WARN_STREAM("SIZE RESCALED CLOUD: " << cloud_xyzi->points.size() << " " << cloud_xyzi->width << " " << cloud_xyzi->height);
-      return runSegmentation(cloud_xyzi, stamp, outPose, rMask, sloamIn,
-                             sloamOut);
-  }
+//  bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
+//                      HesaiPointCloud::Ptr cloud, ros::Time stamp,
+//                      SE3 &outPose) {
+//      SloamInput sloamIn;
+//      SloamOutput sloamOut;
+//      if(!prepSegmentation(initialGuess, prevKeyPose, sloamIn)){
+//          return false;
+//      }
+//      ROS_INFO_STREAM("Entering Callback. Hesai lidar data stamp: " << stamp);
+//      // RUN SEGMENTATION
+//      cv::Mat rMask = cv::Mat::zeros(64, 2048, CV_8U);
+//      cv::Mat rMaskScaled = cv::Mat::zeros(32, 2000, CV_8U);
+//      CloudT::Ptr cloud_xyzi = boost::make_shared<CloudT>();
+//      cloud_xyzi->header = cloud->header;
+//      cloud_xyzi->is_dense = true;
+//      cloud_xyzi->width = 2000;
+//      cloud_xyzi->height = 32;
+//      ROS_INFO_STREAM("Entering Callback2. Hesai lidar data stamp: " << stamp);
+//      segmentator_->run(cloud, rMask, cloud_xyzi);
+//      cv::resize(rMask, rMaskScaled, rMaskScaled.size(), 0, 0,
+//                 cv::INTER_NEAREST);
+//      ROS_WARN_STREAM("SIZE RESCALED CLOUD: " << cloud_xyzi->points.size() << " " << cloud_xyzi->width << " " << cloud_xyzi->height);
+//      return runSegmentation(cloud_xyzi, stamp, outPose, rMask, sloamIn,
+//                             sloamOut);
+//  }
 } // namespace sloam
 
 

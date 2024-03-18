@@ -181,12 +181,12 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
 //              //
               pcl::copyPoint(hesai_cloud->points[ctr], p);
 
-              std::cerr << p.x << ", " <<
-                           p.y << ", " <<
-                           p.z << ", " <<
-                           p.intensity << ", " <<
-                           ctr << ", " << i << ", " << j <<
-                           "= p[x,y,z,intensity,counter,i,j] \n";
+//              std::cerr << p.x << ", " <<
+//                           p.y << ", " <<
+//                           p.z << ", " <<
+//                           p.intensity << ", " <<
+//                           ctr << ", " << i << ", " << j <<
+//                           "= p[x,y,z,intensity,counter,i,j] \n";
               // std::cerr << "index out of range: " << ctr << "\n";
               std::cerr << "cloud_out->points.size: " << cloud_out->points.size() << "\n";
               std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size() << "\n";
@@ -218,7 +218,7 @@ bool InputManager::callSLOAM(SE3 relativeMotion, ros::Time stamp)
 {    
     CloudT::Ptr cloud = pcl::make_shared<CloudT>();
     int r;
-    if(use_hesai_){
+    if(false){
         r = FindHesaiCloud(stamp, cloud);
     } else {
         r = FindPC(stamp, cloud);

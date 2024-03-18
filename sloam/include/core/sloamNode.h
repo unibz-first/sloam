@@ -36,7 +36,7 @@ namespace sloam
     using Ptr = boost::shared_ptr<SLOAMNode>;
     using ConstPtr = boost::shared_ptr<const SLOAMNode>;
     bool run(const SE3 initialGuess, const SE3 prevKeyPose, CloudT::Ptr cloud, ros::Time stamp, SE3 &outPose);
-    bool run(const SE3 initialGuess, const SE3 prevKeyPose, HesaiPointCloud::Ptr cloud, ros::Time stamp, SE3 &outPose);
+//    bool run(const SE3 initialGuess, const SE3 prevKeyPose, HesaiPointCloud::Ptr cloud, ros::Time stamp, SE3 &outPose);
     int lidarW() const {return lidar_w;}
     int lidarH() const {return lidar_h;}
 
