@@ -25,7 +25,7 @@ InputManager::InputManager(ros::NodeHandle &nh) : nh_(nh), tf_listener_{tf_buffe
     nh_.param<std::string>("odom_frame_id", odom_frame_id_, "odom");
     nh_.param<std::string>("map_frame_id", map_frame_id_, "map");
     nh_.param<std::string>("cloud_topic", cloud_topic_, "cloud");
-    nh_.param<std::string>("odom_topic", odom_topic_, "/quadrotor/vio/odom");    
+    nh_.param<std::string>("odom_topic", odom_topic_, "/quadrotor/vio/odom");
     nh_.param<bool>("use_hesai", use_hesai_, false);
 
     pubPose_ =
@@ -142,8 +142,9 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
   HesaiPointCloud::Ptr hesai_cloud = pcl::make_shared<HesaiPointCloud>();
   // TODO: change templating to CloudT instead of PointT?
     // cloud is not dense because it might contain invalid points
-  if (!cloud_out) {
+  if (cloud_out.get() == nullptr) {
       std::cerr << "no cloud_out CloudT::Ptr +++++++++++++++++++00\n";
+      cloud_out = pcl::make_shared<CloudT>();
   }
   cloud_out->is_dense = false;
   std::cerr << "++++++++++++++++++++++++++++++++++++0\n";
@@ -160,54 +161,41 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
   size_t ctr = 0;
   size_t null_ctr = 0;
   std::cerr << sloam_->lidarH() << ", " << sloam_->lidarW() << "= [h,w] \n";
+  PointT p_invalid;
+  p_invalid.x = std::numeric_limits<float>::quiet_NaN();
+  p_invalid.y = p_invalid.x;
+  p_invalid.z = p_invalid.x;
+  p_invalid.intensity = p_invalid.x;
   for (int i = 0; i < sloam_->lidarW(); i++) {
-    for (int j = 0; j < sloam_->lidarH(); j++) {           
-//        std::cerr << hesai_cloud->points[ctr].ring << ", " <<
-//                     hesai_cloud->points[ctr].x << ", " <<
-//                     hesai_cloud->points[ctr].y << ", " <<
-//                     hesai_cloud->points[ctr].z << ", " <<
-//                     hesai_cloud->points[ctr].intensity << ", " <<
-//                     ctr << ", " << i << ", " << j <<
-//                     "= [ring,x,y,z,intensity,i,j] \n";
+    for (int j = 0; j < sloam_->lidarH(); j++) {
       if (hesai_cloud->points[ctr].ring == j) {
-          PointT p;
-//              std::cerr << p.x << ", " <<
-//                           p.y << ", " <<
-//                           p.z << ", " <<
-//                           p.intensity << ", " <<
-//                           ctr << ", " << i << ", " << j <<
-//                           "= p[x,y,z,intensity,counter,i,j] \n";
-//              std::cerr << i << " pre-copy above, post-copy below ++++++++++++++++++++++\n";
-//              //
-              pcl::copyPoint(hesai_cloud->points[ctr], p);
+        PointT p;
+        pcl::copyPoint(hesai_cloud->points[ctr], p);
+        std::cerr << "cloud_out->points.size: " << cloud_out->points.size() << "\n";
+        std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size() << "\n";
 
-//              std::cerr << p.x << ", " <<
-//                           p.y << ", " <<
-//                           p.z << ", " <<
-//                           p.intensity << ", " <<
-//                           ctr << ", " << i << ", " << j <<
-//                           "= p[x,y,z,intensity,counter,i,j] \n";
-              // std::cerr << "index out of range: " << ctr << "\n";
-              std::cerr << "cloud_out->points.size: " << cloud_out->points.size() << "\n";
-              std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size() << "\n";
-
+        std::cerr << p.x << ", " << p.y << ", " << p.z << ", " << p.intensity
+                  << ", " << ctr << ", " << i << ", " << j
+                  << "= p[x,y,z,intensity,counter,i,j] \n";
+        // std::cerr << "index out of range: " << ctr << "\n";
+        std::cerr << "cloud_out->points.size: " << cloud_out->points.size()
+                  << "\n";
+        std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size()
+                  << "\n";
 
         cloud_out->points.push_back(p);
         ctr++;
       } else {
         // add an invalid point where there is a missing "pixel"
-        PointT p;
-        p.x = std::numeric_limits<float>::quiet_NaN();
-        p.y = p.x;
-        p.z = p.x;
-        p.intensity = p.x;
-        cloud_out->points.push_back(PointT(std::numeric_limits<float>::quiet_NaN()));
+        cloud_out->points.push_back(p_invalid);
         null_ctr++;
       }
+
       std::cerr << "null_ctr = " << null_ctr << "\n";
       size_t null_check = cloud_out->points.size() - hesai_cloud->points.size();
-      std::cerr << "cloud_out - hesai_cloud = " <<
-                   cloud_out->points.size()-hesai_cloud->points.size() << "\n";
+      std::cerr << "cloud_out - hesai_cloud = "
+                << cloud_out->points.size() - hesai_cloud->points.size()
+                << "\n";
       std::cerr << "null_check = " << null_check << "\n";
     }
   }
@@ -215,7 +203,7 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
 }
 
 bool InputManager::callSLOAM(SE3 relativeMotion, ros::Time stamp)
-{    
+{
     CloudT::Ptr cloud = pcl::make_shared<CloudT>();
     int r;
     if(false){

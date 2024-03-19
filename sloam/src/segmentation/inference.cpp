@@ -646,7 +646,7 @@ void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
 
     // taken from sm_prog. create cv::Mat objs
     // TODO: replace w/ _HesaiImages struct, make lightweight
-    cv::Size s(_img_w,_img_h);
+    cv::Size s(_img_w, _img_h);
     cv::Mat range_image = cv::Mat(s, CV_8U);
     cv::Mat range_image_float = cv::Mat(s, CV_32F);
     cv::Mat mask_image(s, CV_8U);
@@ -731,14 +731,6 @@ void Segmentation::run(const CloudT::Ptr cloud, cv::Mat& maskImg){
     ROS_INFO_STREAM("Segmentation::run 2");
     runNetwork(ni, maskImg);
 }
-
-//void Segmentation::run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg, CloudT::Ptr& padded_cloud){
-//    NetworkInput ni;
-//    ROS_INFO_STREAM("Segmentation::run 1");
-//    cloudToNetworkInput(cloud, ni, padded_cloud);
-//    ROS_INFO_STREAM("Segmentation::run 2");
-//    runNetwork(ni, maskImg);
-//}
 
 void Segmentation::speedTest(const Cloud::Ptr cloud, size_t numTests){
     std::vector<float> cloudVector;

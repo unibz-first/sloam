@@ -119,7 +119,7 @@ void SegNode::SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
   std::cerr << "4+++++++++++++++++++++++++++++\n";
 
   CloudT::Ptr groundCloud(new CloudT());
-  segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
+  segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
   std::cerr << "5+++++++++++++++++++++++++++++\n";
 
   CloudT::Ptr treeCloud(new CloudT);

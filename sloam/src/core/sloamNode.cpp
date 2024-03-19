@@ -305,46 +305,8 @@ namespace sloam
         (*it) = 127;
       }
     }
-//    cv::imshow("mask", visible_mask);
-//    cv::waitKey(0);
-    cv::imwrite("/home/mchang/Downloads/rMask.png", visible_mask);
-    // cv::waitKey(1);
+    cv::imwrite("/home/mcamurri/Downloads/rMask.png", visible_mask);
     return runSegmentation(cloud, stamp, outPose, rMask, sloamIn, sloamOut);
   }
 
-//  bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
-//                      HesaiPointCloud::Ptr cloud, ros::Time stamp,
-//                      SE3 &outPose) {
-//      SloamInput sloamIn;
-//      SloamOutput sloamOut;
-//      if(!prepSegmentation(initialGuess, prevKeyPose, sloamIn)){
-//          return false;
-//      }
-//      ROS_INFO_STREAM("Entering Callback. Hesai lidar data stamp: " << stamp);
-//      // RUN SEGMENTATION
-//      cv::Mat rMask = cv::Mat::zeros(64, 2048, CV_8U);
-//      cv::Mat rMaskScaled = cv::Mat::zeros(32, 2000, CV_8U);
-//      CloudT::Ptr cloud_xyzi = boost::make_shared<CloudT>();
-//      cloud_xyzi->header = cloud->header;
-//      cloud_xyzi->is_dense = true;
-//      cloud_xyzi->width = 2000;
-//      cloud_xyzi->height = 32;
-//      ROS_INFO_STREAM("Entering Callback2. Hesai lidar data stamp: " << stamp);
-//      segmentator_->run(cloud, rMask, cloud_xyzi);
-//      cv::resize(rMask, rMaskScaled, rMaskScaled.size(), 0, 0,
-//                 cv::INTER_NEAREST);
-//      ROS_WARN_STREAM("SIZE RESCALED CLOUD: " << cloud_xyzi->points.size() << " " << cloud_xyzi->width << " " << cloud_xyzi->height);
-//      return runSegmentation(cloud_xyzi, stamp, outPose, rMask, sloamIn,
-//                             sloamOut);
-//  }
 } // namespace sloam
-
-
-// int main(int argc, char **argv) {
-//   ros::init(argc, argv, "sloam");
-//   ros::NodeHandle n("sloam");
-//   sloam::SLOAMNode sloam(n);
-//   ros::spin();
-
-//   return 0;
-// }
