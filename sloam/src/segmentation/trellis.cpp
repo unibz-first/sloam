@@ -13,33 +13,34 @@
 Instance::Instance() { tree_id_ = 0; }
 
 void Instance::findClusters(const CloudT::Ptr pc,
-      pcl::PointCloud<pcl::Label>& euclidean_labels, std::vector<pcl::PointIndices>& label_indices){
-    if(pc->size() == 0) return;
+                            pcl::PointCloud<pcl::Label> &euclidean_labels,
+                            std::vector<pcl::PointIndices> &label_indices) {
+  if (pc->size() == 0) return;
+  pcl::EuclideanClusterComparator<
+      PointT, pcl::Label>::Ptr euclidean_cluster_comparator =
+      pcl::make_shared<pcl::EuclideanClusterComparator<PointT, pcl::Label>>();
+  euclidean_cluster_comparator->setInputCloud(pc);
+  euclidean_cluster_comparator->setDistanceThreshold(1.0, false);
 
-    pcl::EuclideanClusterComparator<PointT, pcl::Label>::Ptr
-        euclidean_cluster_comparator(new pcl::EuclideanClusterComparator<PointT, pcl::Label>());
+  pcl::OrganizedConnectedComponentSegmentation<PointT, pcl::Label>
+      euclidean_segmentation(euclidean_cluster_comparator);
+  euclidean_segmentation.setInputCloud(pc);
+  euclidean_segmentation.segment(euclidean_labels, label_indices);
 
-    euclidean_cluster_comparator->setInputCloud(pc);
-    euclidean_cluster_comparator->setDistanceThreshold(1.0, false);
-
-    pcl::OrganizedConnectedComponentSegmentation<PointT, pcl::Label>
-        euclidean_segmentation(euclidean_cluster_comparator);
-    euclidean_segmentation.setInputCloud(pc);
-    euclidean_segmentation.segment(euclidean_labels, label_indices);
-
-    // pcl::PCDWriter writer;
-    // for (size_t i = 0; i < label_indices.size (); i++){
-    //   // std::cout << "LABEL INDICES SIZE: " << label_indices.at(i).indices.size() << std::endl;
-    //   if (label_indices.at(i).indices.size () > 80){
-    //     CloudT cluster;
-    //     pcl::copyPointCloud(*pc, label_indices.at(i).indices, cluster);
-    //     ROS_DEBUG_STREAM(cluster.width << " x " << cluster.height);
-    //     // clusters.push_back(cluster);
-    //     std::stringstream ss;
-    //     ss << "/opt/bags/inf/pcds/sloam/" << "cloud_cluster_" << i << ".pcd";
-    //     writer.write<PointT> (ss.str (), cluster, false);
-    //   }
-    // }
+  // pcl::PCDWriter writer;
+  // for (size_t i = 0; i < label_indices.size (); i++){
+  //   // std::cout << "LABEL INDICES SIZE: " <<
+  //   label_indices.at(i).indices.size() << std::endl; if
+  //   (label_indices.at(i).indices.size () > 80){
+  //     CloudT cluster;
+  //     pcl::copyPointCloud(*pc, label_indices.at(i).indices, cluster);
+  //     ROS_DEBUG_STREAM(cluster.width << " x " << cluster.height);
+  //     // clusters.push_back(cluster);
+  //     std::stringstream ss;
+  //     ss << "/opt/bags/inf/pcds/sloam/" << "cloud_cluster_" << i << ".pcd";
+  //     writer.write<PointT> (ss.str (), cluster, false);
+  //   }
+  // }
 }
 
 TreeVertex Instance::computeTreeVertex(CloudT::Ptr beam, int label){
@@ -70,7 +71,7 @@ bool Instance::computeVertexProperties(CloudT::Ptr &pc, Slash& filteredPoints, P
 
   std::sort(pc->points.begin(), pc->points.end(),
             [](const PointT &p1, const PointT &p2) { return p1.x < p2.x; });
-            
+
   median_x = pc->points[middle_point].x;
 
   std::sort(pc->points.begin(), pc->points.end(),

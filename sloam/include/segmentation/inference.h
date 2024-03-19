@@ -81,7 +81,7 @@ class Segmentation {
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
 
     void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud,
-                   unsigned char val, bool dense = false);
+                   unsigned char val, bool organised = false);
     void speedTest(const Cloud::Ptr cloud, size_t numTests);
     NetworkInput _doProjection(const std::vector<float>& scan,
                                const uint32_t& num_points,
@@ -100,10 +100,6 @@ class Segmentation {
 
     void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
                                 HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;
-    NetworkInput _doHesaiProjection(const HesaiImages& hesaiImages,
-                                    std::vector<float> *rgs = nullptr,
-                                    std::vector<size_t> *xps = nullptr,
-                                    std::vector<size_t> *yps = nullptr);
 
 private:
 
@@ -145,8 +141,6 @@ private:
     int _img_d;
     bool _do_destagger;
 public:
-    void cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud,
-                             NetworkInput& ni, CloudT::Ptr& padded_cloud);
     void cloudToNetworkInput(const CloudT::Ptr& cloud, NetworkInput& ni);
     void runNetwork(NetworkInput &ni, cv::Mat& maskImg);
 };

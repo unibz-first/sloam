@@ -139,67 +139,6 @@ void Segmentation::hesaiPointcloudToImage(const HesaiPointCloud& cloud,
   cv::waitKey(0);
 }
 
-NetworkInput Segmentation::_doHesaiProjection(
-        const HesaiImages& hesaiImages,
-        std::vector<float>* rgs,
-        std::vector<size_t>* xps,
-        std::vector<size_t>* yps) {
-  const cv::Mat& mat = hesaiImages.range_resized_float_;
-
-  std::vector<float> proj_xs_tmp;
-  std::vector<float> proj_ys_tmp;
-  std::vector<float> invalid_input =  {0.0f}; // moved to ::sortOrder
-  std::vector<float> ranges;
-  // Copy the data from the cv::Mat to the vector
-  for (int i = 0; i < mat.rows; ++i) {
-    for (int j = 0; j < mat.cols; ++j) {
-        proj_xs_tmp.push_back(j);
-        if(xps != nullptr){
-            xps->push_back(j);
-        }
-        proj_ys_tmp.push_back(i);
-        if(yps != nullptr){
-            yps->push_back(i);
-        }
-        ranges.push_back(mat.at<float>(i, j));
-        if(rgs != nullptr){
-            rgs->push_back(mat.at<float>(i,j));
-        }
-    }
-  }
-//  proj_xs = proj_xs_tmp;
-//  proj_ys = proj_ys_tmp;
-//  uint32_t num_points = 64 * 2048;
-
-//  // order in decreasing depth
-  NetworkInput range_image = sortOrder(mat.rows, mat.cols, rgs, xps, yps);
-
-//  std::vector<size_t> orders = sort_indexes(ranges);
-//  std::vector<float> sorted_proj_xs;
-//  sorted_proj_xs.reserve(num_points);
-//  std::vector<float> sorted_proj_ys;
-//  sorted_proj_ys.reserve(num_points);
-//  std::vector<std::vector<float>> inputs;
-//  inputs.reserve(num_points);
-//  for (size_t idx : orders){
-//    sorted_proj_xs.push_back(proj_xs[idx]);
-//    sorted_proj_ys.push_back(proj_ys[idx]);
-//    std::vector<float> input = {ranges[idx]};
-//    inputs.push_back(input);
-//  }
-//  // assing to images
-//  std::vector<std::vector<float>> range_image(num_points);
-
-//  // zero initialize
-//  for (uint32_t i = 0; i < range_image.size(); ++i) {
-//      range_image[i] = invalid_input;
-//  }
-//  for (uint32_t i = 0; i < inputs.size(); ++i) {
-//    range_image[int(sorted_proj_ys[i] * 2048 + sorted_proj_xs[i])] = inputs[i];
-//  }
-  return range_image;
-}
-
 NetworkInput Segmentation::sortOrder(int h, int w,
                std::vector<float>* rgs,
                std::vector<size_t>* xps,
@@ -361,8 +300,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
   }
 
   // assing to images
-//  std::vector<std::vector<float>> range_image(_img_w * _img_h);
-    NetworkInput range_image(_img_w * _img_h);
+  NetworkInput range_image(_img_w * _img_h);
   // zero initialize
   for (uint32_t i = 0; i < range_image.size(); ++i) {
       range_image[i] = invalid_input;
@@ -372,7 +310,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
     range_image[int(sorted_proj_ys[i] * _img_w + sorted_proj_xs[i])] = inputs[i];
   }
 
-  return range_image; //DANGER: NOT TO BE CONFUSED WITH THE cv::Mat HesaiImages.{range_, intensity_, etc.}
+  return range_image;
 }
 
 void Segmentation::_makeTensor(
@@ -448,67 +386,67 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
                              cv::Mat mask,
                              CloudT::Ptr& outCloud,
                              unsigned char val,
-                             bool dense) {
+                             bool organised) {
 
 
     //  Cloud::Ptr tempCloud(new Cloud);
     CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
     ROS_INFO_STREAM("inference.cpp maskCloud() makes tempCloud!");
+    tempCloud->is_dense = true; // assume cloud has no NaN or inf points
     size_t numPoints = mask.rows * mask.cols;
     assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
     ROS_INFO_STREAM("inference.cpp maskCloud() maskImg pixels: " << numPoints);
-    ROS_INFO_STREAM("inference.cpp maskCloud() : " << numPoints);
 
     Point p;
     p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
     size_t nan_ctr = 0;
     size_t pt_ctr = 0;
 
-    for (int i = 0; i < numPoints; i++) {
-        // this won't work if using _yps, _xps
-        size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
-        //    std::cerr << "[i, proj_xs[i], proj_ys]: [" << i <<
-        //                 ", " << proj_xs[i] << ", " << proj_ys[i] << "]\n";
-        unsigned char m = mask.data[proj_idx * sizeof(unsigned char)];
+    if (organised) {
+      std::vector<std::vector<PointT>> org_pc(mask.cols, std::vector<PointT>(mask.rows, p));
 
-        if(m == val){
-            std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
-            tempCloud->points.push_back(cloud->points[i]);
-            ++pt_ctr;
-        } else if(dense){
-            std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
-            tempCloud->points.push_back(p);
-            ++nan_ctr;
+      for (size_t i = 0; i < cloud->points.size(); i++) {
+        auto m = mask.at<uchar>(proj_xs[i], proj_ys[i]);
+        if (m == val) {
+          org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];
         }
+      }
+
+      for (size_t i = 0; i < mask.cols; ++i) {
+        for (size_t j = 0; j < mask.rows; ++j) {
+          tempCloud->points.push_back(org_pc[i][j]);
+        }
+      }
+
+      if (_do_destagger){
+          _destaggerCloud(tempCloud, outCloud);
+      } else {
+        pcl::copyPointCloud(*tempCloud, *outCloud);
+      }
+
+      outCloud->is_dense = (cloud->points.size() == numPoints);
+      outCloud->width = _img_w;
+      outCloud->height = _img_h;
+    } else {
+      outCloud->clear();
+      for (int i = 0; i < cloud->points.size(); i++) {
+        auto m = mask.at<uchar>(proj_xs[i], proj_ys[i]);
+        if (m == val) {
+          outCloud->points.push_back(cloud->points[i]);
+          ++pt_ctr;
+        }
+      }
     }
+    outCloud->header = cloud->header;
 
     std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
     std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
-    pcl::copyPointCloud(*tempCloud, *outCloud);
 
-    if(dense){
-        // destagger. TODO: Do this with mask
-        // Adapted from Chao's driver
-        if (_do_destagger){
-            _destaggerCloud(tempCloud, outCloud);
-        } else {
-            outCloud = tempCloud;
-        }
-        outCloud->width = _img_w;
-        outCloud->height = _img_h;
-        outCloud->is_dense = true;
-    } else {
-        outCloud->width = outCloud->points.size();
-        outCloud->height = 1;
-        outCloud->is_dense = false;
-    }
     // test uncomment
     std::cerr << "++++++++++++++++++++++++++++++++++++++ 2.2\n";
     std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
     ROS_INFO_STREAM("Number of points: " << numPoints);
     std::cout << "points in outCloud: " << outCloud->points.size() << "\n";
-    outCloud->header = cloud->header;
-
 }
 
 void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg){
@@ -608,15 +546,6 @@ void Segmentation::runERF(cv::Mat& rImg, cv::Mat& maskImg){
     // file << "matName" << result;
     // std::cout << sizeof(outData) << std::endl;
     _argmax(outData, maskImg);
-}
-
-void Segmentation::cloudToNetworkInput(
-        const HesaiPointCloud::Ptr& cloud,
-        NetworkInput& ni, CloudT::Ptr& padded_cloud){
-
-    hesaiPointcloudToImage(*cloud, _hesaiImages, padded_cloud);
-    // call hesai projection function
-    ni = _doHesaiProjection(_hesaiImages);
 }
 
 void Segmentation::cloudToCloudVector(const Cloud::Ptr &cloud, std::vector<float> &cloudVector) const{

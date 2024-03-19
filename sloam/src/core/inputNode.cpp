@@ -147,6 +147,8 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
       cloud_out = pcl::make_shared<CloudT>();
   }
   cloud_out->is_dense = false;
+  cloud_out->header = hesai_cloud->header;
+
   std::cerr << "++++++++++++++++++++++++++++++++++++0\n";
   int r = FindPC(stamp, hesai_cloud);
   std::cerr << "++++++++++++++++++++++++++++++++++++1\n";
@@ -161,8 +163,10 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
   size_t ctr = 0;
   size_t null_ctr = 0;
   std::cerr << sloam_->lidarH() << ", " << sloam_->lidarW() << "= [h,w] \n";
+  cloud_out->width = sloam_->lidarW();
+  cloud_out->height = sloam_->lidarH();
   PointT p_invalid;
-  p_invalid.x = std::numeric_limits<float>::quiet_NaN();
+  p_invalid.x = 0.0;//std::numeric_limits<float>::quiet_NaN();
   p_invalid.y = p_invalid.x;
   p_invalid.z = p_invalid.x;
   p_invalid.intensity = p_invalid.x;
@@ -206,7 +210,7 @@ bool InputManager::callSLOAM(SE3 relativeMotion, ros::Time stamp)
 {
     CloudT::Ptr cloud = pcl::make_shared<CloudT>();
     int r;
-    if(false){
+    if(use_hesai_){
         r = FindHesaiCloud(stamp, cloud);
     } else {
         r = FindPC(stamp, cloud);
