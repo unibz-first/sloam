@@ -37,3 +37,4 @@ sloam:
   debug_mode: true
   use_hesai: false
   do_destagger: false
+  publish_tf: true
