@@ -272,9 +272,8 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
         yps->push_back(proj_y);
     }
   }
-  std::cerr << "inference.cpp _doProjection(): \n";
-  std::cerr << "h: " << _img_h << "\n";
-  std::cerr << "w: " << _img_w << "\n";
+  std::cerr << "inference.cpp _doProjection() HxW: " <<
+               _img_h << ", " << _img_w << "\n";
 //  NetworkInput range_image = sortOrder(_img_h, _img_w, rgs, xps, yps);
 
   // stope a copy in original order
@@ -349,7 +348,7 @@ void Segmentation::_makeTensor(
       tensor[buffer_idx] = projected_data[pixel_id][i];
     }
   }
-  std::cerr<< "all_zeros = true for " << ctr << " pixels \n";
+  std::cerr<< "_makeTensor all_zeros = true for " << ctr << " pixels \n";
 }
 
 void Segmentation::_destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud){
@@ -391,11 +390,11 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
 
     //  Cloud::Ptr tempCloud(new Cloud);
     CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
-    ROS_INFO_STREAM("inference.cpp maskCloud() makes tempCloud!");
+    //ROS_INFO_STREAM("inference.cpp maskCloud() makes tempCloud!");
     tempCloud->is_dense = true; // assume cloud has no NaN or inf points
     size_t numPoints = mask.rows * mask.cols;
     assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
-    ROS_INFO_STREAM("inference.cpp maskCloud() maskImg pixels: " << numPoints);
+    //ROS_INFO_STREAM("inference.cpp maskCloud() maskImg pixels: " << numPoints);
 
     Point p;
     p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
@@ -439,14 +438,15 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
     }
     outCloud->header = cloud->header;
 
-    std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
-    std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
+    //std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
+    //std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
 
     // test uncomment
-    std::cerr << "++++++++++++++++++++++++++++++++++++++ 2.2\n";
-    std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
-    ROS_INFO_STREAM("Number of points: " << numPoints);
-    std::cout << "points in outCloud: " << outCloud->points.size() << "\n";
+    //std::cerr << "++++++++++++++++++++++++++++++++++++++ 2.2\n";
+    //std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
+    auto outCloud_diff = numPoints - outCloud->points.size();
+    ROS_INFO_STREAM("numPoints: " << numPoints << "; outCloud diff = " << outCloud_diff);
+    //ROS_INFO_STREAM("points in outCloud: " << outCloud->points.size());
 }
 
 void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg){
@@ -522,7 +522,7 @@ void Segmentation::runERF(cv::Mat& rImg, cv::Mat& maskImg){
     memcpy(inputTensorValues.data(), pImg.data, imgSize * sizeof(float));
     std::cout << "Tensor size: " << _inputTensorSize << std::endl;
     std::cout << "Tensor size: " << _outputTensorSize << std::endl;
-    std::cout << "DAta size: " << imgSize << std::endl;
+    std::cout << "Data size: " << imgSize << std::endl;
 
     std::vector<Ort::Value> inputTensors;
     std::vector<Ort::Value> outputTensors;
@@ -556,8 +556,8 @@ void Segmentation::cloudToCloudVector(const Cloud::Ptr &cloud, std::vector<float
       cloudVector.push_back(point.intensity);
     }
     std::cout << "cloudVector of size: " << cloudVector.size() << std::endl;
-    std::cout << "cloudVector.front(): " << cloudVector.front() << std::endl;
-    std::cout << "cloudVector.back(): " << cloudVector.back() << std::endl;
+    //std::cout << "cloudVector.front(): " << cloudVector.front() << std::endl;
+    //std::cout << "cloudVector.back(): " << cloudVector.back() << std::endl;
 }
 
 void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
@@ -579,9 +579,9 @@ void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
     cv::Mat range_image = cv::Mat(s, CV_8U);
     cv::Mat range_image_float = cv::Mat(s, CV_32F);
     cv::Mat mask_image(s, CV_8U);
-    std::cerr << "cv::Mat imgs created, with:\n";
-    std::cerr << "height = " << s.height << "\n";
-    std::cerr << "width " << s.width << "\n";
+//    std::cerr << "cv::Mat imgs created, with:\n";
+//    std::cerr << "height = " << s.height << "\n";
+//    std::cerr << "width " << s.width << "\n";
 
     // fill range images w projected vals.
 //   for (int i = 0; i < _img_h*_img_w; ++i) {

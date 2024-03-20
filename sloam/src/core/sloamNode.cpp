@@ -187,13 +187,13 @@ namespace sloam
                                   SE3 &outPose, const cv::Mat& rMask,
                                   SloamInput& sloamIn, SloamOutput& sloamOut) {
     CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
-    ROS_INFO_STREAM("sloamNode.cpp groundCloud init'd");
+    //ROS_INFO_STREAM("sloamNode.cpp groundCloud init'd");
     segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
-    ROS_INFO_STREAM("sloamNode.cpp groundCloud filled");
+    ROS_INFO_STREAM("sloamNode.cpp unorganiSed groundCloud filled");
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
-    ROS_INFO_STREAM("sloamNode.cpp the treeCloud init'd!");
+    //ROS_INFO_STREAM("sloamNode.cpp the treeCloud init'd!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
-    ROS_INFO_STREAM("sloamNode.cpp treeCloud built");
+    ROS_INFO_STREAM("sloamNode.cpp organiSed treeCloud built");
 
     groundCloud->header = cloud->header;
     sloamIn.groundCloud = groundCloud;
@@ -219,6 +219,7 @@ namespace sloam
     ROS_DEBUG_STREAM("Publishing Results. Success? " << success << std::endl);
 
     if (success) {
+        // this needs some delay finagling
       if (firstScan_ && sloamOut.tm.size() > 0) firstScan_ = false;
 
       publishMap_(stamp);

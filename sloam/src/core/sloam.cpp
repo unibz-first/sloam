@@ -327,7 +327,8 @@ namespace sloam
     }
   }
 
-  void sloam::binGroundPoints(const SE3 pose, const VectorType &points, boost::multi_array<VectorType, 2> &scgf)
+  void sloam::binGroundPoints(const SE3 pose, const VectorType &points,
+                              boost::multi_array<VectorType, 2> &scgf)
   {
 
     PointT origin;
@@ -364,8 +365,8 @@ namespace sloam
             scgf[pointRadiiBin][pointThetaBin].push_back(p);
             pushbackcount++;
 //            std::cerr << "pushd baaack: " << pushbackcount << " times +++++++++++++ \n";
-            std::cerr << "radiiBin,thetaBin: " << pointRadiiBin << ","
-                      << pointThetaBin << "+no:"<< pushbackcount << "++++++++++++++\n";
+//            std::cerr << "radiiBin,thetaBin: " << pointRadiiBin << ","
+//                      << pointThetaBin << "+no:"<< pushbackcount << "++++++++++++++\n";
         } else {
             std::cerr << "Index out bounds!!! " << pointRadiiBin << ","
                       << pointThetaBin << "++++++++++++++++++++++\n";

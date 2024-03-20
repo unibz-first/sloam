@@ -149,9 +149,9 @@ int InputManager::FindHesaiCloud(const ros::Time stamp,
   cloud_out->is_dense = false;
   cloud_out->header = hesai_cloud->header;
 
-  std::cerr << "++++++++++++++++++++++++++++++++++++0\n";
+//  std::cerr << "++++++++++++++++++++++++++++++++++++0\n";
   int r = FindPC(stamp, hesai_cloud);
-  std::cerr << "++++++++++++++++++++++++++++++++++++1\n";
+//  std::cerr << "++++++++++++++++++++++++++++++++++++1\n";
   std::cerr << r << " returned\n";
   if(r < CLOUD_FOUND) {
       std::cerr << "++++++++++++++++++++++++++++++++++++2\n";
@@ -266,7 +266,8 @@ void InputManager::Odom2SlamTf()
 
     std::string parent_frame_id = map_frame_id_;
     std::string child_frame_id = odom_frame_id_;
-    PublishOdomAsTf(sloam::toRosOdom_(odom2slam, map_frame_id_, latestOdom.stamp), parent_frame_id, child_frame_id);
+    PublishOdomAsTf(sloam::toRosOdom_(odom2slam, map_frame_id_, latestOdom.stamp),
+                    parent_frame_id, child_frame_id);
     // publish pose AFTER TF so that the visualization looks correct
     pubPose_.publish(sloam::toRosOdom_(slam_pose, map_frame_id_, latestOdom.stamp));
 }
@@ -281,6 +282,7 @@ void InputManager::PublishOdomAsTf(const nav_msgs::Odometry &odom_msg,
     // odom_msg.header.frame_id
     tf.header.frame_id = parent_frame_id;
     tf.child_frame_id = child_frame_id;
+    ROS_INFO_STREAM("odom msg parent, child: " << parent_frame_id << ", " << child_frame_id);
     tf.transform.translation.x = odom_msg.pose.pose.position.x;
     tf.transform.translation.y = odom_msg.pose.pose.position.y;
     tf.transform.translation.z = odom_msg.pose.pose.position.z;
