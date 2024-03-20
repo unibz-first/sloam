@@ -7,7 +7,8 @@ using NetworkInput = Segmentation::NetworkInput;
 
 Segmentation::Segmentation(const std::string modelFilePath,
     const float fov_up, const float fov_down,
-    const int img_w, const int img_h, const int img_d, bool do_destagger) {
+    const int img_w, const int img_h, const int img_d, bool do_destagger)
+{
   _fov_up = fov_up / 180.0 * M_PI;    // field of view up in radians
   _fov_down = fov_down / 180.0 * M_PI;  // field of view down in radians
   _fov = std::abs(_fov_down) + std::abs(_fov_up); // get field of view total in radians
@@ -16,7 +17,7 @@ Segmentation::Segmentation(const std::string modelFilePath,
   _img_d = img_d;
   _verbose = true;
   _do_destagger = do_destagger;
-  initializeImages();
+  //initializeImages();
 
   const std::string sessionName = "SLOAMSeg";
   // specify number of CPU threads allowed for semantic segmentation inference to use
@@ -82,18 +83,7 @@ void Segmentation::_startONNXSession(
     _inputNames = {inputName};
     _outputNames = {outputName};
 }
-
-void Segmentation::initializeImages(){
-    _hesaiImages.range_ = cv::Mat::zeros(32, 2000, CV_8U); // for img topic viz
-    _hesaiImages.intensity_ = cv::Mat::zeros(32, 2000, CV_8U);
-    _hesaiImages.range_precise_ = cv::Mat::zeros(32, 2000, CV_64F);
-    _hesaiImages.range_resized_ = cv::Mat::zeros(64, 2048, CV_64F); // maintain precision on rescaling
-    _hesaiImages.range_resized_float_ = cv::Mat::zeros(64, 2048, CV_32F); //deliver to ONNX network
-    _hesaiImages.range_resized_show_ = cv::Mat::zeros(64, 2048, CV_8U);
-    _hesaiImages.mask_resized_ = cv::Mat::zeros(64, 2048, CV_8U);
-    _hesaiImages.mask_ = cv::Mat::zeros(32, 2000, CV_8U);
-}
-
+/*
 void Segmentation::hesaiPointcloudToImage(const HesaiPointCloud& cloud,
                                           HesaiImages& hesaiImages,
                                           CloudT::Ptr& padded_cloud) const {
@@ -138,7 +128,7 @@ void Segmentation::hesaiPointcloudToImage(const HesaiPointCloud& cloud,
   cv::imshow("resized range", hesaiImages.range_resized_show_);
   cv::waitKey(0);
 }
-
+*/
 NetworkInput Segmentation::sortOrder(int h, int w,
                std::vector<float>* rgs,
                std::vector<size_t>* xps,

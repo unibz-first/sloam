@@ -10,6 +10,8 @@
 #include <definitions.h>
 #include <trellis.h>
 #include <serialization.h>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
 
 class SegNode
 {
@@ -20,6 +22,8 @@ private:
   void SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg);
   CloudT::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
   boost::shared_ptr<seg::Segmentation> segmentator_ = nullptr;
+  void maskImgViz(cv::Mat& mask_img) const;
+
 
   ros::NodeHandle nh_;
   ros::Subscriber cloudSub_;
@@ -28,11 +32,24 @@ private:
   ros::Publisher groundPub_;
   ros::Time prevStamp;
   Instance graphDetector_;
+  image_transport::ImageTransport it;
+  image_transport::Publisher maskPub_;
+  cv::Mat maskViz_;
 };
 
-SegNode::SegNode(const ros::NodeHandle &nh) : nh_(nh)
-{
+void SegNode::maskImgViz(cv::Mat& mask_img) const {
+  cv::MatIterator_<uchar> it;
+  // create visible mask image
+  for (it = mask_img.begin<uchar>(); it != mask_img.end<uchar>(); ++it) {
+    if ((*it) == 1) {
+      (*it) = 127;
+    }
+  }
+}
 
+SegNode::SegNode(const ros::NodeHandle &nh)
+    : nh_(nh), it(nh_), maskPub_(it.advertise("segmentation/mask", 1))
+{
   std::string cloud_topic;
   nh_.param<std::string>("cloud_topic", cloud_topic, "/os_cloud_node/cloud_undistort");
   cloudSub_ = nh_.subscribe(cloud_topic, 10, &SegNode::SegCb_, this);
@@ -105,26 +122,26 @@ void SegNode::SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
     return;
 
   CloudT::Ptr cloud(new CloudT);
-  std::cerr << "0+++++++++++++++++++++++++++++ \n";
   pcl::fromROSMsg(*cloudMsg, *cloud);
-  std::cerr << "1+++++++++++++++++++++++++++++\n";
   pcl_conversions::toPCL(ros::Time::now(), cloud->header.stamp);
-  std::cerr << "2+++++++++++++++++++++++++++++\n";
 
   // RUN SEGMENTATION
   cv::Mat rMask = cv::Mat::zeros(cloudMsg->height, cloudMsg->width, CV_8U);
-  std::cerr << "3+++++++++++++++++++++++++++++\n";
   segmentator_->run(cloud, rMask);
+
+  rMask.copyTo(maskViz_);
+  maskImgViz(maskViz_);
+  auto maskMsg_ = cv_bridge::CvImage(cloudMsg->header, "mono8", maskViz_).toImageMsg();
+  maskPub_.publish(maskMsg_);
+
+
   // cv::imwrite("mask.jpg", rMask);
-  std::cerr << "4+++++++++++++++++++++++++++++\n";
 
   CloudT::Ptr groundCloud(new CloudT());
   segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
-  std::cerr << "5+++++++++++++++++++++++++++++\n";
 
   CloudT::Ptr treeCloud(new CloudT);
   segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
-  std::cerr << "6+++++++++++++++++++++++++++++\n";
 
 
   std::vector<std::vector<TreeVertex>> landmarks;

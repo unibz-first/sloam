@@ -4,55 +4,54 @@
 
 namespace sloam
 {
-  SLOAMNode::SLOAMNode(const ros::NodeHandle &nh) : nh_(nh)
-  {
-    ROS_DEBUG_STREAM("Defining topics" << std::endl);
+SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
+    : nh_(nh), it(nh_), maskPub_(it.advertise("debug/mask", 1))
+{
+  ROS_DEBUG_STREAM("Defining topics" << std::endl);
 
-    debugMode_ = nh_.param("debug_mode", false);
-    if (debugMode_)
-    {
-      ROS_DEBUG_STREAM("Running SLOAM in Debug Mode" << std::endl);
-      if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug))
-      {
-        ros::console::notifyLoggerLevelsChanged();
-      }
+  debugMode_ = nh_.param("debug_mode", false);
+  if (debugMode_) {
+    ROS_DEBUG_STREAM("Running SLOAM in Debug Mode" << std::endl);
+    if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+                                       ros::console::levels::Debug)) {
+      ros::console::notifyLoggerLevelsChanged();
     }
-    else
-    {
-      if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info))
-      {
-        ros::console::notifyLoggerLevelsChanged();
-      }
+  } else {
+    if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+                                       ros::console::levels::Info)) {
+      ros::console::notifyLoggerLevelsChanged();
     }
-
-    // Debugging Publishers
-    // pubMapTreeFeatures_ = nh_.advertise<CloudT>("debug/map_tree_features", 1);
-    pubMapGroundFeatures_ = nh_.advertise<CloudT>("debug/map_ground_features", 1);
-    pubObsTreeFeatures_ = nh_.advertise<CloudT>("debug/obs_tree_features", 1);
-    pubObsGroundFeatures_ = nh_.advertise<CloudT>("debug/obs_ground_features", 1);
-    pubTrajectory_ = nh_.advertise<visualization_msgs::MarkerArray>("debug/trajectory", 1, true);
-    pubMapTreeModel_ =
-        nh_.advertise<visualization_msgs::MarkerArray>("map", 1, true);
-    pubSubmapTreeModel_ =
-        nh_.advertise<visualization_msgs::MarkerArray>("debug/map_tree_models", 1, true);
-    pubObsTreeModel_ =
-        nh_.advertise<visualization_msgs::MarkerArray>("debug/obs_tree_models", 1, true);
-    pubMapGroundModel_ = nh_.advertise<visualization_msgs::MarkerArray>("debug/map_ground_model", 1);
-    pubObsGroundModel_ = nh_.advertise<visualization_msgs::MarkerArray>("debug/obs_ground_model", 1);
-
-    // SLOAM publishers
-    pubObs_ =
-        nh_.advertise<sloam_msgs::ROSObservation>("observation", 10);
-    pubMapPose_ =
-        nh_.advertise<geometry_msgs::PoseStamped>("map_pose", 10);
-
-    // sub_graph_map_ = new obs_sub_type(nh_, "/graph_slam/submap", 20);
-
-    ROS_DEBUG_STREAM("Init params" << std::endl);
-    firstScan_ = true;
-    tf_listener_.reset(new tf2_ros::TransformListener(tf_buffer_));
-    initParams_();
   }
+
+  // Debugging Publishers
+  // pubMapTreeFeatures_ = nh_.advertise<CloudT>("debug/map_tree_features", 1);
+  pubMapGroundFeatures_ = nh_.advertise<CloudT>("debug/map_ground_features", 1);
+  pubObsTreeFeatures_ = nh_.advertise<CloudT>("debug/obs_tree_features", 1);
+  pubObsGroundFeatures_ = nh_.advertise<CloudT>("debug/obs_ground_features", 1);
+  pubTrajectory_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "debug/trajectory", 1, true);
+  pubMapTreeModel_ =
+      nh_.advertise<visualization_msgs::MarkerArray>("map", 1, true);
+  pubSubmapTreeModel_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "debug/map_tree_models", 1, true);
+  pubObsTreeModel_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "debug/obs_tree_models", 1, true);
+  pubMapGroundModel_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "debug/map_ground_model", 1);
+  pubObsGroundModel_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "debug/obs_ground_model", 1);
+
+  // SLOAM publishers
+  pubObs_ = nh_.advertise<sloam_msgs::ROSObservation>("observation", 10);
+  pubMapPose_ = nh_.advertise<geometry_msgs::PoseStamped>("map_pose", 10);
+
+  // sub_graph_map_ = new obs_sub_type(nh_, "/graph_slam/submap", 20);
+
+  ROS_DEBUG_STREAM("Init params" << std::endl);
+  firstScan_ = true;
+  tf_listener_.reset(new tf2_ros::TransformListener(tf_buffer_));
+  initParams_();
+}
 
   void SLOAMNode::initParams_()
   {
@@ -281,6 +280,16 @@ namespace sloam
     return true;
   }
 
+  void SLOAMNode::maskImgViz(cv::Mat& mask_img) const {
+    cv::MatIterator_<uchar> it;
+    // create visible mask image
+    for (it = mask_img.begin<uchar>(); it != mask_img.end<uchar>(); ++it) {
+      if ((*it) == 1) {
+        (*it) = 127;
+      }
+    }
+  }
+
   bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
                       CloudT::Ptr cloud, ros::Time stamp, SE3 &outPose) {
     SloamInput sloamIn;
@@ -295,18 +304,18 @@ namespace sloam
     ROS_WARN_STREAM("sloamNode.cpp run() rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
     segmentator_->run(cloud, rMask);
 
-    // make 0,1 differentiable
-    cv::MatIterator_<uchar> it;
-    cv::Mat visible_mask;
-    rMask.copyTo(visible_mask);
+    // copy the mask for visualisation
+    rMask.copyTo(maskViz_);
+    // replace some colors to make the mask easier to see on RViz
+    maskImgViz(maskViz_);
+    std_msgs::Header h;
+    h.frame_id = cloud->header.frame_id;
+    h.stamp = stamp;
+    auto maskMsg_ = cv_bridge::CvImage(h, "mono8", maskViz_).toImageMsg();
+    // publish the mask image
+    maskPub_.publish(maskMsg_);
 
-    // create visible mask image
-    for (it = visible_mask.begin<uchar>(); it != visible_mask.end<uchar>(); ++it) {
-      if ((*it) == 1) {
-        (*it) = 127;
-      }
-    }
-    cv::imwrite("/home/mcamurri/Downloads/rMask.png", visible_mask);
+    // pass the mask to a function that does the actual segmentation on the point clouds
     return runSegmentation(cloud, stamp, outPose, rMask, sloamIn, sloamOut);
   }
 

@@ -42,6 +42,7 @@ namespace sloam
   private:
     void initParams_();
     CloudT::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
+    void maskImgViz(cv::Mat& mask_img) const;
     void publishMap_(const ros::Time stamp);
     /*
     * --------------- Visualization ------------------
@@ -64,6 +65,8 @@ namespace sloam
     ros::Publisher pubObsTreeModel_;
     ros::Publisher pubMapGroundModel_;
     ros::Publisher pubObsGroundModel_;
+    image_transport::ImageTransport it;
+    image_transport::Publisher maskPub_;
 
     // Transform
     tf2_ros::Buffer tf_buffer_;
@@ -79,6 +82,7 @@ namespace sloam
     FeatureModelParams fmParams_;
     int lidar_w = 2048;
     int lidar_h = 64;
+    cv::Mat maskViz_;
 
     std::vector<SE3> trajectory;
     bool firstScan_;

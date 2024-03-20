@@ -49,18 +49,6 @@ struct Timer{
     }
 };
 
-// for OpenCV throughput of unstructured/incomplete Hesai Pointclouds
-struct HesaiImages {
-    cv::Mat range_;
-    cv::Mat intensity_;
-    cv::Mat range_precise_;
-    cv::Mat range_resized_;
-    cv::Mat range_resized_float_;
-    cv::Mat range_resized_show_;
-    cv::Mat mask_resized_; // 64x2058
-    cv::Mat mask_; // hesai 32x2000
-};
-
 class Segmentation {
  public:
     explicit Segmentation(const std::string modelFilePath,
@@ -95,11 +83,8 @@ class Segmentation {
     void cloudToCloudVector(const Cloud::Ptr& cloud,
                             std::vector<float>& cloudVector) const;
 
-    HesaiImages _hesaiImages;
-    void initializeImages();
-
-    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
-                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;
+/*    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
+                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;*/
 
 private:
 
