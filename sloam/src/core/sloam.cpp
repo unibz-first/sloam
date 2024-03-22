@@ -376,7 +376,7 @@ namespace sloam
       }
 
     }
-    std::cerr << "OUT DA LOOP++++++++++++++++++++++++++++++++++++++++++++++++++ \n";
+//    std::cerr << "OUT DA LOOP++++++++++++++++++++++++++++++++++++++++++++++++++ \n";
     // Retain the bottom k% of points in each cell
     for (int i = 0; i < scgf.shape()[0]; i++)
     {

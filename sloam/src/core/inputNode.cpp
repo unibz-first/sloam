@@ -92,10 +92,10 @@ bool InputManager::Run()
     if (odomQueue_.empty() || pcQueue_.empty())
         return false;
 
-    // ROS_DEBUG_THROTTLE(5, "First odom stamp: %f", odomQueue_.front().stamp.toSec());
-    // ROS_DEBUG_THROTTLE(5, "First cloud stamp: %f", pcQueue_.front()->header.stamp.toSec());
-    // ROS_DEBUG_THROTTLE(5, "Last odom stamp: %f", odomQueue_.back().stamp.toSec());
-    // ROS_DEBUG_THROTTLE(5, "Last cloud stamp: %f", pcQueue_.back()->header.stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "First odom stamp: %f", odomQueue_.front().stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "First cloud stamp: %f", pcQueue_.front()->header.stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "Last odom stamp: %f", odomQueue_.back().stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "Last cloud stamp: %f", pcQueue_.back()->header.stamp.toSec());
 
     for (auto i = 0; i < odomQueue_.size(); ++i)
     {
@@ -253,8 +253,10 @@ void InputManager::PCCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
 
 void InputManager::Odom2SlamTf()
 {
-    if (keyPoses_.size() == 0)
+    if (keyPoses_.size() == 0){
+        std::cerr << "keyPoses_ is empty\n";
         return;
+    }
 
     auto slam_pose = keyPoses_[keyPoses_.size()-1];
     //vio_odom is odomTb, slam_pose which is slamTb
@@ -266,6 +268,7 @@ void InputManager::Odom2SlamTf()
 
     std::string parent_frame_id = map_frame_id_;
     std::string child_frame_id = odom_frame_id_;
+    // **************************************************************************
     PublishOdomAsTf(sloam::toRosOdom_(odom2slam, map_frame_id_, latestOdom.stamp),
                     parent_frame_id, child_frame_id);
     // publish pose AFTER TF so that the visualization looks correct
@@ -288,6 +291,15 @@ void InputManager::PublishOdomAsTf(const nav_msgs::Odometry &odom_msg,
     tf.transform.translation.z = odom_msg.pose.pose.position.z;
     tf.transform.rotation = odom_msg.pose.pose.orientation;
     broadcaster_.sendTransform(tf);
+    // TODO: remove later but this is a great 1-line print format for future
+    ROS_INFO("Transform: translation = [%f, %f, %f], rotation = [%f, %f, %f, %f]",
+             tf.transform.translation.x,
+             tf.transform.translation.y,
+             tf.transform.translation.z,
+             tf.transform.rotation.x,
+             tf.transform.rotation.y,
+             tf.transform.rotation.z,
+             tf.transform.rotation.w);
 }
 
 int main(int argc, char **argv)
