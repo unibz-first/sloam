@@ -1,6 +1,7 @@
 ﻿#include <sloamNode.h>
 #include <pcl/common/io.h>
 #include <chrono>
+#include <boost/predef/version.h>
 
 namespace sloam
 {
@@ -24,6 +25,10 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
   }
 
   // Debugging Publishers
+  groundCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>(
+              "debug/labeled_ground", 1);
+  treeCloudPub_ = nh_.advertise<sensor_msgs::PointCloud2>(
+              "debug/labeled_trees", 1);
   // pubMapTreeFeatures_ = nh_.advertise<CloudT>("debug/map_tree_features", 1);
   pubMapGroundFeatures_ = nh_.advertise<CloudT>("debug/map_ground_features", 1);
   pubObsTreeFeatures_ = nh_.advertise<CloudT>("debug/obs_tree_features", 1);
@@ -182,17 +187,34 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     return vtxCloud;
   }
 
+
   bool SLOAMNode::runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
                                   SE3 &outPose, const cv::Mat& rMask,
                                   SloamInput& sloamIn, SloamOutput& sloamOut) {
+//    cv::imshow("whatever", rMask);
+//    cv::waitKey(1);
+
     CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
-    //ROS_INFO_STREAM("sloamNode.cpp groundCloud init'd");
-    segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
-    ROS_INFO_STREAM("sloamNode.cpp unorganiSed groundCloud filled");
+    segmentator_->maskCloud(cloud, rMask, groundCloud, 1, true); //old: false
+    ROS_INFO_STREAM("sloamNode.cpp organiSed groundCloud filled");
+
+    //publishing labeled groundCloud
+    sensor_msgs::PointCloud2 groundCloud_msg;
+    pcl::toROSMsg(*groundCloud, groundCloud_msg);
+    groundCloud_msg.header.frame_id = groundCloud->header.frame_id;
+    groundCloud_msg.header.stamp = pcl_conversions::fromPCL(groundCloud->header.stamp);
+    SLOAMNode::groundCloudPub_.publish(groundCloud_msg);
+
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
     //ROS_INFO_STREAM("sloamNode.cpp the treeCloud init'd!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
-    ROS_INFO_STREAM("sloamNode.cpp organiSed treeCloud built");
+
+    //publishing labeled groundCloud
+    sensor_msgs::PointCloud2 treeCloud_msg;
+    pcl::toROSMsg(*treeCloud, treeCloud_msg);
+    treeCloud_msg.header.frame_id = treeCloud->header.frame_id;
+    treeCloud_msg.header.stamp = pcl_conversions::fromPCL(treeCloud->header.stamp);
+    SLOAMNode::treeCloudPub_.publish(treeCloud_msg);
 
     groundCloud->header = cloud->header;
     sloamIn.groundCloud = groundCloud;
@@ -211,6 +233,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
       pubMapGroundFeatures_.publish(mapGFeats);
       pubMapGroundModel_.publish(
           vizGroundModel(getPrevGroundModel(), map_frame_id_, 444));
+      // maskCloudPub_.publish()
     }
 
     bool success = RunSloam(sloamIn, sloamOut);
@@ -288,6 +311,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
         (*it) = 127;
       }
     }
+
   }
 
   bool SLOAMNode::run(const SE3 initialGuess, const SE3 prevKeyPose,
@@ -306,6 +330,9 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
 
     // copy the mask for visualisation
     rMask.copyTo(maskViz_);
+    cv::Size sz(2000,64);
+    cv::resize(rMask, maskViz_, sz);
+
     // replace some colors to make the mask easier to see on RViz
     maskImgViz(maskViz_);
     std_msgs::Header h;

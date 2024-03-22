@@ -377,45 +377,62 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
                              unsigned char val,
                              bool organised) {
 
-
     //  Cloud::Ptr tempCloud(new Cloud);
     CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
     //ROS_INFO_STREAM("inference.cpp maskCloud() makes tempCloud!");
     tempCloud->is_dense = true; // assume cloud has no NaN or inf points
     size_t numPoints = mask.rows * mask.cols;
     assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
-    //ROS_INFO_STREAM("inference.cpp maskCloud() maskImg pixels: " << numPoints);
+    // ROS_INFO_STREAM("inference.cpp maskCloud() maskImg pixels: " << numPoints);
 
     Point p;
     p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
     size_t nan_ctr = 0;
     size_t pt_ctr = 0;
-
+        cv::imshow("whatever", mask);
+        cv::waitKey(1);
     if (organised) {
-      std::vector<std::vector<PointT>> org_pc(mask.cols, std::vector<PointT>(mask.rows, p));
+      std::vector<std::vector<PointT>> org_pc(mask.cols,
+                                              std::vector<PointT>(mask.rows, p));
 
       for (size_t i = 0; i < cloud->points.size(); i++) {
         auto m = mask.at<uchar>(proj_xs[i], proj_ys[i]);
         if (m == val) {
+//            std::cerr << "[px,py,val] = " << proj_xs[i] << ", " << proj_ys[i] <<
+//                         ", " << static_cast<int>(m) << " ]\n";
           org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];
+//          Point mcp = cloud->points[i];
+//          std::cerr << "point [x,y,z,i]: " << mcp.x << ", " << mcp.y << ", " <<
+//                       mcp.z << ", " << mcp.intensity << "\n";
         }
       }
 
       for (size_t i = 0; i < mask.cols; ++i) {
         for (size_t j = 0; j < mask.rows; ++j) {
           tempCloud->points.push_back(org_pc[i][j]);
+//          std::cerr << "i = px, j = py: [" << i << ", " << j << "]\n";
+//          Point mcp = org_pc[i][j];
+//          std::cerr << "point [x,y,z,i]: " << mcp.x << ", " << mcp.y << ", " <<
+//                       mcp.z << ", " << mcp.intensity << "\n";
         }
       }
+//      std::cerr << "tempCloud w,h,size: [" << tempCloud->width << ", " <<
+//                   tempCloud->height << ", " << tempCloud->size() << "]\n";
 
       if (_do_destagger){
           _destaggerCloud(tempCloud, outCloud);
+          std::cerr << "destaggering\n";
       } else {
         pcl::copyPointCloud(*tempCloud, *outCloud);
       }
 
       outCloud->is_dense = (cloud->points.size() == numPoints);
+      //std::cerr << outCloud->is_dense << " outCloud dense?\n";
       outCloud->width = _img_w;
       outCloud->height = _img_h;
+//      std::cerr << "outCloud w,h,size: [" << outCloud->width << ", " <<
+//                   outCloud->height << ", " << outCloud->size() << "]\n";
+
     } else {
       outCloud->clear();
       for (int i = 0; i < cloud->points.size(); i++) {
@@ -428,21 +445,30 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
     }
     outCloud->header = cloud->header;
 
+    //print pixel counts
+    cv::Mat binaryMask = (mask == val);
+    int px_count = cv::countNonZero(binaryMask);
+    std::cerr << "px_val, count: [" << static_cast<int>(val) <<
+                 ", " << px_count << "]\n";
+
     //std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
     //std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
 
     // test uncomment
     //std::cerr << "++++++++++++++++++++++++++++++++++++++ 2.2\n";
-    //std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
+    std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
     auto outCloud_diff = numPoints - outCloud->points.size();
     ROS_INFO_STREAM("numPoints: " << numPoints << "; outCloud diff = " << outCloud_diff);
     //ROS_INFO_STREAM("points in outCloud: " << outCloud->points.size());
 }
 
-void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid_idxs, cv::Mat& maskImg){
+void Segmentation::_mask(const float* output,
+                         const std::vector<size_t>& invalid_idxs,
+                         cv::Mat& maskImg){
   size_t channel_offset = _img_w * _img_h;
   unsigned char _n_classes = 3;
   std::vector<unsigned char> max;
+  std::vector<int> class_counts(_n_classes, 0);
 
   for (int pixel_id = 0; pixel_id < channel_offset; pixel_id++){
     int max_idx = pixel_id;
@@ -457,13 +483,22 @@ void Segmentation::_mask(const float* output, const std::vector<size_t>& invalid
       }
       if(out_idx == 2) out_idx = 255;
       max.push_back(out_idx);
+      class_counts[out_idx]++;
     }
 
   for(const int idx : invalid_idxs){
     max[idx] = 0;
+    class_counts[0]++;
+    if(max[idx] == 255) class_counts[255]--;
+    else class_counts[max[idx]]--;
   }
 
   memcpy(maskImg.data, max.data(), max.size()*sizeof(unsigned char));
+
+
+  std::cerr << "count [0,1,255] = [" << class_counts[0] << ", " <<
+            class_counts[1] << ", " << class_counts[255] << "]\n";
+
 }
 
 void Segmentation::_preProcessRange(const cv::Mat& img, cv::Mat& pImg, float maxDist) {

@@ -137,7 +137,7 @@ void Instance::computeGraph(const CloudT::Ptr cloud, const CloudT::Ptr tree_clou
   pcl::PointCloud<pcl::Label> euclidean_labels;
   std::vector<pcl::PointIndices> label_indices;
   findClusters(tree_cloud, euclidean_labels, label_indices);
-  std::cerr << "++++++++++++++++++++++++++++++++++++++ 0\n";
+  std::cerr << tree_cloud->points.size() << "\n";
   findTrees(tree_cloud, euclidean_labels, label_indices, landmarks);
   std::cerr << "++++++++++++++++++++++++++++++++++++++ 1\n";
 
