@@ -61,7 +61,9 @@ void Segmentation::_startONNXSession(
     Ort::TypeInfo inputTypeInfo = _session->GetInputTypeInfo(0);
     auto inputTensorInfo = inputTypeInfo.GetTensorTypeAndShapeInfo();
     _inputDims = inputTensorInfo.GetShape();
-    // _inputDims = {1, 64, 2048, 2};
+    // _inputDims = {1, 64, 2048, 2}; WRONG
+    // _inputDims = {1, 1, 64, 2048}; VERIFIED: stable_bdarknet.onnx
+    // _inputDims = {1, 1, 32, 2000}; darknet21pp_hpc.onnx
     std::cout << "[Segmentation] Input Dimensions: "; printVector(_inputDims);
 
     // OUTPUT
@@ -73,7 +75,9 @@ void Segmentation::_startONNXSession(
     // ONNXTensorElementDataType outputType = outputTensorInfo.GetElementType();
 
     _outputDims = outputTensorInfo.GetShape();
-    // _outputDims = {1, 64, 2048, 2};
+    // _outputDims = {1, 64, 2048, 2}; WRONG!!!!!!!!!!!!!!!!!!!!
+    // _outputDims = {1, 3, 64, 2048}; VERIFIED: stable_bdarknet.onnx
+    // _outputDims = {1, 3, 64, 2048}; darknet21pp_hpc.onnx
     std::cout << "[Segmentation] Output Dimensions: "; printVector(_outputDims);
 
     // _inputTensorSize = _img_w * _img_h * _img_d;
@@ -319,11 +323,14 @@ void Segmentation::_makeTensor(
   bool all_zeros = false;
   int ctr = 0;
 
+  std::cout << "projected_data.size() = " << projected_data.size() << "\n";
+
   for (uint32_t pixel_id = 0; pixel_id < projected_data.size(); pixel_id++){
     // check if the pixel is invalid
     all_zeros = std::all_of(projected_data[pixel_id].begin(), projected_data[pixel_id].end(), [](int i) { return ((i==0.0f) || (isnan(i))); });
     if (all_zeros) {
       invalid_idxs.push_back(pixel_id);
+      //std::cout << "pixel_id = " << pixel_id <<"\n";
       ctr +=1;
     }
     //std::cout << "projected_data[pixel_id].data() = " << projected_data[pixel_id].data() << std::endl;
@@ -377,26 +384,27 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
                              unsigned char val,
                              bool organised) {
 
-    //  Cloud::Ptr tempCloud(new Cloud);
+    //  Cloud::Ptr tempCloud(new Cloud); old way. now, better:
     CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
-    //ROS_INFO_STREAM("inference.cpp maskCloud() makes tempCloud!");
     tempCloud->is_dense = true; // assume cloud has no NaN or inf points
     size_t numPoints = mask.rows * mask.cols;
     assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
-    // ROS_INFO_STREAM("inference.cpp maskCloud() maskImg pixels: " << numPoints);
+    ROS_INFO_STREAM("inference.cpp maskCloud() mask pixels: " << numPoints);
+    ROS_INFO_STREAM("inference.cpp maskCloud() cloud points: " << cloud->size());
 
     Point p;
     p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
     size_t nan_ctr = 0;
     size_t pt_ctr = 0;
-        cv::imshow("whatever", mask);
-        cv::waitKey(1);
+
+    //removing 'dense' confusion: dense = has NaN.
     if (organised) {
+        //initialize zeros, instead of adding them later.
       std::vector<std::vector<PointT>> org_pc(mask.cols,
                                               std::vector<PointT>(mask.rows, p));
 
       for (size_t i = 0; i < cloud->points.size(); i++) {
-        auto m = mask.at<uchar>(proj_xs[i], proj_ys[i]);
+        auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
         if (m == val) {
 //            std::cerr << "[px,py,val] = " << proj_xs[i] << ", " << proj_ys[i] <<
 //                         ", " << static_cast<int>(m) << " ]\n";
@@ -416,6 +424,41 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
 //                       mcp.z << ", " << mcp.intensity << "\n";
         }
       }
+      tempCloud->is_dense = (cloud->points.size() == numPoints);
+      //std::cerr << outCloud->is_dense << " outCloud dense?\n";
+      tempCloud->width = _img_w;
+      tempCloud->height = _img_h;
+      if (val == 255) {
+          auto temp2Cloud = pcl::make_shared<CloudT>();
+          for (int i = 0; i < cloud->points.size(); i++) {
+            auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
+            if (m == val) {
+              temp2Cloud->points.push_back(cloud->points[i]);
+            }
+          }
+          temp2Cloud->width = temp2Cloud->points.size();
+          temp2Cloud->height = 1;
+          cv::imwrite("/home/mchang/Downloads/treemaskImg.png", mask);
+          pcl::io::savePCDFileASCII("/home/mchang/Downloads/originalCloud.pcd",*cloud);
+          pcl::io::savePCDFileASCII("/home/mchang/Downloads/treeCloud.pcd",*tempCloud);
+          pcl::io::savePCDFileASCII("/home/mchang/Downloads/unorgTreeCloud.pcd", *temp2Cloud);
+      }
+      if (val == 1) {
+          auto temp2Cloud = pcl::make_shared<CloudT>();
+          for (int i = 0; i < cloud->points.size(); i++) {
+            auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
+            if (m == val) {
+              temp2Cloud->points.push_back(cloud->points[i]);
+            }
+          }
+          temp2Cloud->width = temp2Cloud->points.size();
+          temp2Cloud->height = 1;
+          cv::imwrite("/home/mchang/Downloads/groundmaskImg.png", mask);
+//          pcl::io::savePCDFileASCII("/home/mchang/Downloads/originalCloud.pcd",*cloud);
+          pcl::io::savePCDFileASCII("/home/mchang/Downloads/groundCloud.pcd",*tempCloud);
+          pcl::io::savePCDFileASCII("/home/mchang/Downloads/unorgGroundCloud.pcd", *temp2Cloud);
+      }
+
 //      std::cerr << "tempCloud w,h,size: [" << tempCloud->width << ", " <<
 //                   tempCloud->height << ", " << tempCloud->size() << "]\n";
 
@@ -426,17 +469,13 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
         pcl::copyPointCloud(*tempCloud, *outCloud);
       }
 
-      outCloud->is_dense = (cloud->points.size() == numPoints);
-      //std::cerr << outCloud->is_dense << " outCloud dense?\n";
-      outCloud->width = _img_w;
-      outCloud->height = _img_h;
 //      std::cerr << "outCloud w,h,size: [" << outCloud->width << ", " <<
 //                   outCloud->height << ", " << outCloud->size() << "]\n";
 
     } else {
       outCloud->clear();
       for (int i = 0; i < cloud->points.size(); i++) {
-        auto m = mask.at<uchar>(proj_xs[i], proj_ys[i]);
+        auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
         if (m == val) {
           outCloud->points.push_back(cloud->points[i]);
           ++pt_ctr;
@@ -451,8 +490,8 @@ void Segmentation::maskCloud(const CloudT::Ptr cloud,
     std::cerr << "px_val, count: [" << static_cast<int>(val) <<
                  ", " << px_count << "]\n";
 
-    //std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
-    //std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
+    std::cerr << "inference.cpp maskCloud() nan_ctr = " << nan_ctr << "\n";
+    std::cerr << "inference.cpp maskCloud() pt_ctr = " << pt_ctr << "\n";
 
     // test uncomment
     //std::cerr << "++++++++++++++++++++++++++++++++++++++ 2.2\n";
