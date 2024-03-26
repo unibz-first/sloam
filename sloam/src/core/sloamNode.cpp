@@ -196,7 +196,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
 //    cv::waitKey(1);
 
     CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
-    segmentator_->maskCloud(cloud, rMask, groundCloud, 1, true); //old: false
+    segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false); //old: false
     ROS_INFO_STREAM("sloamNode.cpp organiSed groundCloud filled");
 
     //publishing labeled groundCloud
@@ -223,6 +223,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
 
     // Trellis graph instance segmentation
     graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
+    ROS_WARN_STREAM("Num tree features available: " << treeCloud->size());
     ROS_INFO_STREAM(
         "Num Landmarks detected with Trellis: " << sloamIn.landmarks.size());
     ROS_INFO_STREAM("Num Map Landmarks: " << sloamIn.mapModels.size());
