@@ -73,11 +73,12 @@ bool Cylinder::filter(const Scalar &maxTreeRadius, const Scalar &maxAxisTheta, c
 }
 
 void Cylinder::computeModel(const std::vector<TreeVertex> &landmarkVtxs,
-                            const Scalar defaultTreeRadius, const Scalar featuresPerTree)
+                            const Scalar defaultTreeRadius,
+                            const Scalar featuresPerTree)
 {
   TreeVertex firstVtx = landmarkVtxs[2];
   std::vector<float> validRadii;
-  CloudT::Ptr tree(new CloudT);
+  CloudT::Ptr tree = pcl::make_shared<CloudT>();
 
   for (size_t i = 0; i < landmarkVtxs.size(); ++i)
   {

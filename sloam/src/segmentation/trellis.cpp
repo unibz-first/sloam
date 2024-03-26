@@ -110,7 +110,7 @@ void Instance::findTrees(const CloudT::Ptr pc,
       if (label_indices.at(i).indices.size () > 80){
         std::vector<TreeVertex> tree;
         for (int row_idx = pc->height - 1; row_idx >= 0; --row_idx) {
-          CloudT::Ptr beam(new CloudT);
+          CloudT::Ptr beam = pcl::make_shared<CloudT>();
           for (size_t col_idx = 0; col_idx < pc->width; ++col_idx) {
             if(euclidean_labels.points[row_idx * pc->width + col_idx].label == i){
               PointT p = pc->at(col_idx, row_idx);

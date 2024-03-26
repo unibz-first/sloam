@@ -33,7 +33,7 @@ struct SloamInput
 {
   SloamInput()
   {
-    groundCloud = CloudT::Ptr(new CloudT());
+    groundCloud = pcl::make_shared<CloudT>(); //new vers.
     // groundKDTree = KDTree::Ptr(new KDTree());
     // allCloud = CloudT::Ptr(new CloudT());
   };

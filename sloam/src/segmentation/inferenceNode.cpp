@@ -90,7 +90,8 @@ SegNode::SegNode(const ros::NodeHandle &nh)
 
 CloudT::Ptr SegNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
 {
-  CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
+//  CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
+    CloudT::Ptr vtxCloud = pcl::make_shared<CloudT>();
   std::vector<float> color_values((int)landmarks.size());
   std::iota(std::begin(color_values), std::end(color_values), 1);
   std::random_device rd;
@@ -121,7 +122,7 @@ void SegNode::SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
   if ((prevStamp - cloudMsg->header.stamp).toSec() < 1.0)
     return;
 
-  CloudT::Ptr cloud(new CloudT);
+  CloudT::Ptr cloud = pcl::make_shared<CloudT>();
   pcl::fromROSMsg(*cloudMsg, *cloud);
   pcl_conversions::toPCL(ros::Time::now(), cloud->header.stamp);
 
@@ -137,10 +138,10 @@ void SegNode::SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
 
   // cv::imwrite("mask.jpg", rMask);
 
-  CloudT::Ptr groundCloud(new CloudT());
+  CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
   segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
 
-  CloudT::Ptr treeCloud(new CloudT);
+  CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
   segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
 
 
