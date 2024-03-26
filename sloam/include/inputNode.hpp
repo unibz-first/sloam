@@ -66,9 +66,9 @@ private:
             }
             else
             {
-              for (const auto& field : pcQueue_.front()->fields){
-                ROS_DEBUG_STREAM("Field name:" << field.name);
-              }
+//              for (const auto& field : pcQueue_.front()->fields){
+//                ROS_DEBUG_STREAM("Field name:" << field.name);
+//              }
                 pcl::fromROSMsg(*pcQueue_.front(), *cloud);
                 pcQueue_.pop();
                 ROS_DEBUG("Calling SLOAM");

@@ -380,20 +380,20 @@ namespace sloam
     // Retain the bottom k% of points in each cell
     for (int i = 0; i < scgf.shape()[0]; i++)
     {
-        std::cerr << "++++++SCGF TIME++++++++++++++++++++++++++++++++++++++++ \n";
+//        std::cerr << "++++++SCGF TIME++++++++++++++++++++++++++++++++++++++++ \n";
       for (int j = 0; j < scgf.shape()[1]; j++)
       {
         if (scgf[i][j].size() > 0)
         {
-            std::cerr << "+scgf size: ++++++ " << scgf[i][j].size() << " +++++++ \n";
+//            std::cerr << "+scgf size: ++++++ " << scgf[i][j].size() << " +++++++ \n";
           double retainNum = (1 / fmParams_.groundRetainThresh);
           if (retainNum < scgf[i][j].size())
           {
             // Bottom 10%
-              std::cerr << "BOTTOM 10% scgf size: ++++++ " << scgf[i][j].size() << " +++++++ \n";
+//              std::cerr << "BOTTOM 10% scgf size: ++++++ " << scgf[i][j].size() << " +++++++ \n";
             int bottomIdx =
                 int(scgf[i][j].size() / retainNum);
-            std::cerr << "ground Retain Thresh : ++++++ " << retainNum << " +++++++ \n";
+//            std::cerr << "ground Retain Thresh : ++++++ " << retainNum << " +++++++ \n";
 
 
             // Sort by z value

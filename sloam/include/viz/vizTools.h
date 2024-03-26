@@ -33,11 +33,13 @@ namespace sloam
   geometry_msgs::PoseStamped makeROSPose(const SE3 &tf, std::string frame_id);
   SE3 toSE3(geometry_msgs::PoseStamped pose);
   visualization_msgs::MarkerArray vizTrajectory(const std::vector<SE3>& poses);
-  visualization_msgs::MarkerArray vizGroundModel(const std::vector<Plane> &gplanes, const std::string &frame_id, int idx);
+  visualization_msgs::MarkerArray vizGroundModel(const std::vector<Plane> &gplanes,
+                                                 const std::string &frame_id, int idx);
   void vizTreeModels(const std::vector<Cylinder> &scanTm,
                      visualization_msgs::MarkerArray &tMarkerArray,
                      size_t &cylinderId);
-  visualization_msgs::Marker vizGroundModel(const Plane &gplane, const std::string &frame_id, const int idx);
+  visualization_msgs::Marker vizGroundModel(const Plane &gplane,
+                                            const std::string &frame_id, const int idx);
   void landmarksToCloud(const std::vector<std::vector<TreeVertex>> &landmarks,
                         CloudT::Ptr &cloud);
   cv::Mat DecodeImage(const sensor_msgs::ImageConstPtr &image_msg);

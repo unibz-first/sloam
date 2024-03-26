@@ -326,7 +326,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     // RUN SEGMENTATION
     cv::Mat rMask = cv::Mat::zeros(lidar_h, lidar_w, CV_8U);
 
-    ROS_WARN_STREAM("sloamNode.cpp run() rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
+    //ROS_WARN_STREAM("sloamNode.cpp run() rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
     segmentator_->run(cloud, rMask);
 
     // copy the mask for visualisation
