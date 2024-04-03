@@ -8,5 +8,5 @@
       <arg name="simulation" value="false" />
     </include>
 
-    <include file="$(find sloam)/launch/sloam.launch"/>
+    <include file="$(find sloam)/launch/sloam_digiforest.launch"/>
 </launch>
