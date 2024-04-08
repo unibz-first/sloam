@@ -197,8 +197,10 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
 
     CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
     segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false); //old: false
-    ROS_INFO_STREAM("sloamNode.cpp organiSed groundCloud filled");
 
+    groundCloud->header = cloud->header;
+    sloamIn.groundCloud = groundCloud;
+    ROS_WARN_STREAM("Num ground features available: " << groundCloud->width);
     //publishing labeled groundCloud
     sensor_msgs::PointCloud2 groundCloud_msg;
     pcl::toROSMsg(*groundCloud, groundCloud_msg);
@@ -209,21 +211,16 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
     //ROS_INFO_STREAM("sloamNode.cpp the treeCloud init'd!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
-
-    //publishing labeled groundCloud
+    // Trellis graph instance segmentation
+    graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
+    ROS_WARN_STREAM("Num tree features available: " << treeCloud->size());
+    //publishing labeled treeCloud
     sensor_msgs::PointCloud2 treeCloud_msg;
     pcl::toROSMsg(*treeCloud, treeCloud_msg);
     treeCloud_msg.header.frame_id = treeCloud->header.frame_id;
     treeCloud_msg.header.stamp = pcl_conversions::fromPCL(treeCloud->header.stamp);
     SLOAMNode::treeCloudPub_.publish(treeCloud_msg);
 
-    groundCloud->header = cloud->header;
-    sloamIn.groundCloud = groundCloud;
-    ROS_WARN_STREAM("Num ground features available: " << groundCloud->width);
-
-    // Trellis graph instance segmentation
-    graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
-    ROS_WARN_STREAM("Num tree features available: " << treeCloud->size());
     ROS_INFO_STREAM(
         "Num Landmarks detected with Trellis: " << sloamIn.landmarks.size());
     ROS_INFO_STREAM("Num Map Landmarks: " << sloamIn.mapModels.size());
