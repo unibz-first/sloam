@@ -6,8 +6,8 @@ namespace seg {
 using NetworkInput = Segmentation::NetworkInput;
 
 Segmentation::Segmentation(const std::string modelFilePath,
-    const float fov_up, const float fov_down,
-    const int img_w, const int img_h, const int img_d, bool do_destagger)
+                           const float fov_up, const float fov_down,
+                           const int img_w, const int img_h, const int img_d, bool do_destagger)
 {
   _fov_up = fov_up / 180.0 * M_PI;    // field of view up in radians
   _fov_down = fov_down / 180.0 * M_PI;  // field of view down in radians
@@ -25,67 +25,67 @@ Segmentation::Segmentation(const std::string modelFilePath,
 }
 
 void Segmentation::_startONNXSession(
-  const std::string sessionName, const std::string modelFilePath, bool useCUDA, size_t numThreads){
-    Ort::SessionOptions sessionOptions;
-    sessionOptions.SetIntraOpNumThreads(numThreads);
-    // Sets graph optimization level
-    // Available levels are
-    // ORT_DISABLE_ALL -> To disable all optimizations
-    // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node
-    // removals) ORT_ENABLE_EXTENDED -> To enable extended optimizations
-    // (Includes level 1 + more complex optimizations like node fusions)
-    // ORT_ENABLE_ALL -> To Enable All possible optimizations
-    sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-    if (useCUDA){
-        // Using CUDA backend
-        // https://github.com/microsoft/onnxruntime/blob/v1.8.2/include/onnxruntime/core/session/onnxruntime_cxx_api.h#L329
-        OrtCUDAProviderOptions cuda_options{0};
-        sessionOptions.AppendExecutionProvider_CUDA(cuda_options);
-    }
+    const std::string sessionName, const std::string modelFilePath, bool useCUDA, size_t numThreads){
+  Ort::SessionOptions sessionOptions;
+  sessionOptions.SetIntraOpNumThreads(numThreads);
+  // Sets graph optimization level
+  // Available levels are
+  // ORT_DISABLE_ALL -> To disable all optimizations
+  // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node
+  // removals) ORT_ENABLE_EXTENDED -> To enable extended optimizations
+  // (Includes level 1 + more complex optimizations like node fusions)
+  // ORT_ENABLE_ALL -> To Enable All possible optimizations
+  sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+  if (useCUDA){
+    // Using CUDA backend
+    // https://github.com/microsoft/onnxruntime/blob/v1.8.2/include/onnxruntime/core/session/onnxruntime_cxx_api.h#L329
+    OrtCUDAProviderOptions cuda_options{0};
+    sessionOptions.AppendExecutionProvider_CUDA(cuda_options);
+  }
 
-    auto env = boost::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_ERROR, sessionName.c_str());
-    _env = boost::move(env);
+  auto env = boost::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_ERROR, sessionName.c_str());
+  _env = boost::move(env);
 
-    auto session = boost::make_shared<Ort::Session>(*_env, modelFilePath.c_str(), sessionOptions);
-    _session = boost::move(session);
+  auto session = boost::make_shared<Ort::Session>(*_env, modelFilePath.c_str(), sessionOptions);
+  _session = boost::move(session);
 
-    auto memInfo = boost::make_shared<Ort::MemoryInfo>(Ort::MemoryInfo::CreateCpu(
-        OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault));
-    _memoryInfo = boost::move(memInfo);
+  auto memInfo = boost::make_shared<Ort::MemoryInfo>(Ort::MemoryInfo::CreateCpu(
+                                                       OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault));
+  _memoryInfo = boost::move(memInfo);
 
-    // Ort::AllocatorWithDefaultOptions allocator;
-    // INPUT
-    const char* inputName = _session->GetInputName(0, _allocator);
-    std::cout << "[Segmentation] Input Name: " << inputName << std::endl;
+  // Ort::AllocatorWithDefaultOptions allocator;
+  // INPUT
+  const char* inputName = _session->GetInputName(0, _allocator);
+  std::cout << "[Segmentation] Input Name: " << inputName << std::endl;
 
-    Ort::TypeInfo inputTypeInfo = _session->GetInputTypeInfo(0);
-    auto inputTensorInfo = inputTypeInfo.GetTensorTypeAndShapeInfo();
-    _inputDims = inputTensorInfo.GetShape();
-    // _inputDims = {1, 64, 2048, 2}; WRONG
-    // _inputDims = {1, 1, 64, 2048}; VERIFIED: stable_bdarknet.onnx
-    // _inputDims = {1, 1, 32, 2000}; darknet21pp_hpc.onnx
-    std::cout << "[Segmentation] Input Dimensions: "; printVector(_inputDims);
+  Ort::TypeInfo inputTypeInfo = _session->GetInputTypeInfo(0);
+  auto inputTensorInfo = inputTypeInfo.GetTensorTypeAndShapeInfo();
+  _inputDims = inputTensorInfo.GetShape();
+  // _inputDims = {1, 64, 2048, 2}; WRONG
+  // _inputDims = {1, 1, 64, 2048}; VERIFIED: stable_bdarknet.onnx
+  // _inputDims = {1, 1, 32, 2000}; darknet21pp_hpc.onnx
+  std::cout << "[Segmentation] Input Dimensions: "; printVector(_inputDims);
 
-    // OUTPUT
-    const char* outputName = _session->GetOutputName(0, _allocator);
-    std::cout << "[Segmentation] Output Name: " << outputName << std::endl;
+  // OUTPUT
+  const char* outputName = _session->GetOutputName(0, _allocator);
+  std::cout << "[Segmentation] Output Name: " << outputName << std::endl;
 
-    Ort::TypeInfo outputTypeInfo = _session->GetOutputTypeInfo(0);
-    auto outputTensorInfo = outputTypeInfo.GetTensorTypeAndShapeInfo();
-    // ONNXTensorElementDataType outputType = outputTensorInfo.GetElementType();
+  Ort::TypeInfo outputTypeInfo = _session->GetOutputTypeInfo(0);
+  auto outputTensorInfo = outputTypeInfo.GetTensorTypeAndShapeInfo();
+  // ONNXTensorElementDataType outputType = outputTensorInfo.GetElementType();
 
-    _outputDims = outputTensorInfo.GetShape();
-    // _outputDims = {1, 64, 2048, 2}; WRONG!!!!!!!!!!!!!!!!!!!!
-    // _outputDims = {1, 3, 64, 2048}; VERIFIED: stable_bdarknet.onnx
-    // _outputDims = {1, 3, 64, 2048}; darknet21pp_hpc.onnx
-    std::cout << "[Segmentation] Output Dimensions: "; printVector(_outputDims);
+  _outputDims = outputTensorInfo.GetShape();
+  // _outputDims = {1, 64, 2048, 2}; WRONG!!!!!!!!!!!!!!!!!!!!
+  // _outputDims = {1, 3, 64, 2048}; VERIFIED: stable_bdarknet.onnx
+  // _outputDims = {1, 3, 64, 2048}; darknet21pp_hpc.onnx
+  std::cout << "[Segmentation] Output Dimensions: "; printVector(_outputDims);
 
-    // _inputTensorSize = _img_w * _img_h * _img_d;
-    // _outputTensorSize = _img_w * _img_h * _img_d;
-    _inputTensorSize = vectorProduct(_inputDims);
-    _outputTensorSize = vectorProduct(_outputDims);
-    _inputNames = {inputName};
-    _outputNames = {outputName};
+  // _inputTensorSize = _img_w * _img_h * _img_d;
+  // _outputTensorSize = _img_w * _img_h * _img_d;
+  _inputTensorSize = vectorProduct(_inputDims);
+  _outputTensorSize = vectorProduct(_outputDims);
+  _inputNames = {inputName};
+  _outputNames = {outputName};
 }
 /*
 void Segmentation::hesaiPointcloudToImage(const HesaiPointCloud& cloud,
@@ -134,79 +134,79 @@ void Segmentation::hesaiPointcloudToImage(const HesaiPointCloud& cloud,
 }
 */
 NetworkInput Segmentation::sortOrder(int h, int w,
-               std::vector<float>* rgs,
-               std::vector<size_t>* xps,
-               std::vector<size_t>* yps){
-    // order in decreasing depth
-    int num_points = h*w;
-    std::cerr << "sorting all your base \n";
-    std::cerr << "h: " << h << "\n";
-    std::cerr << "w: " << w << "\n";
-//    NetworkInput range_image;
+                                     std::vector<float>* rgs,
+                                     std::vector<size_t>* xps,
+                                     std::vector<size_t>* yps){
+  // order in decreasing depth
+  int num_points = h*w;
+  std::cerr << "sorting all your base \n";
+  std::cerr << "h: " << h << "\n";
+  std::cerr << "w: " << w << "\n";
+  //    NetworkInput range_image;
 
-    std::vector<size_t> orders;
-    if (rgs!= nullptr) {
-        orders = sort_indexes(*rgs);
+  std::vector<size_t> orders;
+  if (rgs!= nullptr) {
+    orders = sort_indexes(*rgs);
+  }
+
+  //    std::cerr << "orders: ";
+  //    for (size_t idx : orders) {
+  //        std::cerr << idx << " ";
+  //    }
+  //    std::cerr << "\n";
+  std::cerr << "orders ok \n";
+  std::vector<size_t> sorted_proj_xs;
+  sorted_proj_xs.reserve(num_points);
+  std::cerr << "built spxs \n";
+  std::vector<size_t> sorted_proj_ys;
+  sorted_proj_ys.reserve(num_points);
+  std::cerr << "built spys \n";
+  std::vector<std::vector<float>> inputs;
+  inputs.reserve(num_points);
+  for (size_t idx : orders){ // ordered-range idx queries x,y vectors
+    //        std::cerr << "in loop \n";
+    sorted_proj_xs.push_back((*xps)[idx]);
+    sorted_proj_ys.push_back((*yps)[idx]);
+    std::vector<float> input = {(*rgs)[idx]};
+    inputs.push_back(input);
+  }
+  // best easter egg typo ever, thx Jens. github.com/PRBonn/lidar-bonnetal
+  // assing to images
+  std::cerr << "Sizes: rgs=" << (rgs != nullptr ? rgs->size() : 0)
+            << ", xps=" << (xps != nullptr ? xps->size() : 0)
+            << ", yps=" << (yps != nullptr ? yps->size() : 0)
+            << "\n";
+  NetworkInput range_image(num_points);
+  std::cerr << "range to net \n";
+  std::vector<float> invalid_input =  {0.0f};
+
+  std::cerr << "Size of range_image: " << range_image.size() << "\n";
+  std::cerr << "w: " << w << "\n";
+  // zero initialize
+  for (uint32_t i = 0; i < range_image.size(); ++i) {
+    range_image[i] = invalid_input;
+  }
+  for (uint32_t i = 0; i < inputs.size(); ++i) {
+    //       range_image[int(sorted_proj_ys[i] * w + sorted_proj_xs[i])] = inputs[i]; // w = 2048 **
+    uint32_t index = int(sorted_proj_ys[i] * w + sorted_proj_xs[i]);
+    if (index < range_image.size()) {
+      range_image[index] = inputs[i];
+    } else {
+      std::cerr << "Index out of bounds: " << index << "\n";
     }
+    range_image[int(sorted_proj_ys[i] * w + sorted_proj_xs[i])] = inputs[i]; // w = 2048 **
+  }
+  std::cerr << "returning range image \n";
 
-//    std::cerr << "orders: ";
-//    for (size_t idx : orders) {
-//        std::cerr << idx << " ";
-//    }
-//    std::cerr << "\n";
-    std::cerr << "orders ok \n";
-    std::vector<size_t> sorted_proj_xs;
-    sorted_proj_xs.reserve(num_points);
-    std::cerr << "built spxs \n";
-    std::vector<size_t> sorted_proj_ys;
-    sorted_proj_ys.reserve(num_points);
-    std::cerr << "built spys \n";
-    std::vector<std::vector<float>> inputs;
-    inputs.reserve(num_points);
-    for (size_t idx : orders){ // ordered-range idx queries x,y vectors
-//        std::cerr << "in loop \n";
-        sorted_proj_xs.push_back((*xps)[idx]);
-        sorted_proj_ys.push_back((*yps)[idx]);
-        std::vector<float> input = {(*rgs)[idx]};
-        inputs.push_back(input);
-    }
-    // best easter egg typo ever, thx Jens. github.com/PRBonn/lidar-bonnetal
-    // assing to images
-    std::cerr << "Sizes: rgs=" << (rgs != nullptr ? rgs->size() : 0)
-              << ", xps=" << (xps != nullptr ? xps->size() : 0)
-              << ", yps=" << (yps != nullptr ? yps->size() : 0)
-              << "\n";
-    NetworkInput range_image(num_points);
-    std::cerr << "range to net \n";
-    std::vector<float> invalid_input =  {0.0f};
-
-    std::cerr << "Size of range_image: " << range_image.size() << "\n";
-    std::cerr << "w: " << w << "\n";
-    // zero initialize
-     for (uint32_t i = 0; i < range_image.size(); ++i) {
-         range_image[i] = invalid_input;
-     }
-     for (uint32_t i = 0; i < inputs.size(); ++i) {
-         //       range_image[int(sorted_proj_ys[i] * w + sorted_proj_xs[i])] = inputs[i]; // w = 2048 **
-         uint32_t index = int(sorted_proj_ys[i] * w + sorted_proj_xs[i]);
-         if (index < range_image.size()) {
-             range_image[index] = inputs[i];
-         } else {
-             std::cerr << "Index out of bounds: " << index << "\n";
-         }
-         range_image[int(sorted_proj_ys[i] * w + sorted_proj_xs[i])] = inputs[i]; // w = 2048 **
-     }
-     std::cerr << "returning range image \n";
-
-     return range_image;  //DANGER: != cv::Mat HesaiImages.{range_,}
+  return range_image;  //DANGER: != cv::Mat HesaiImages.{range_,}
 }
 
 std::vector<std::vector<float>> Segmentation::_doProjection(
-        const std::vector<float>& scan,
-        const uint32_t& num_points,
-        std::vector<float>* rgs,
-        std::vector<size_t>* xps,
-        std::vector<size_t>* yps)
+    const std::vector<float>& scan,
+    const uint32_t& num_points,
+    std::vector<float>* rgs,
+    std::vector<size_t>* xps,
+    std::vector<size_t>* yps)
 {
 
   // std::vector<float> invalid_input =  {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
@@ -229,7 +229,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
     float range = std::sqrt(x*x+y*y+z*z);
     ranges.push_back(range);
     if(rgs != nullptr){
-        rgs->push_back(range);
+      rgs->push_back(range);
     }
     xs.push_back(x);
     ys.push_back(y);
@@ -254,7 +254,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
     proj_x = std::max(0.0f, proj_x); // in [0,W-1]
     proj_xs_tmp.push_back(proj_x);
     if(xps != nullptr){
-        xps->push_back(proj_x);
+      xps->push_back(proj_x);
     }
 
     proj_y = std::floor(proj_y);
@@ -263,12 +263,12 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
     proj_ys_tmp.push_back(proj_y);
 
     if(yps != nullptr){
-        yps->push_back(proj_y);
+      yps->push_back(proj_y);
     }
   }
-//  std::cerr << "inference.cpp _doProjection() HxW: " <<
-//               _img_h << ", " << _img_w << "\n";
-//  NetworkInput range_image = sortOrder(_img_h, _img_w, rgs, xps, yps);
+  //  std::cerr << "inference.cpp _doProjection() HxW: " <<
+  //               _img_h << ", " << _img_w << "\n";
+  //  NetworkInput range_image = sortOrder(_img_h, _img_w, rgs, xps, yps);
 
   // stope a copy in original order
   proj_xs = proj_xs_tmp;
@@ -296,7 +296,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
   NetworkInput range_image(_img_w * _img_h);
   // zero initialize
   for (uint32_t i = 0; i < range_image.size(); ++i) {
-      range_image[i] = invalid_input;
+    range_image[i] = invalid_input;
   }
 
   for (uint32_t i = 0; i < inputs.size(); ++i) {
@@ -307,8 +307,8 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
 }
 
 void Segmentation::_makeTensor(
-  std::vector<std::vector<float>>& projected_data,
-  std::vector<float>& tensor, std::vector<size_t>& invalid_idxs){
+    std::vector<std::vector<float>>& projected_data,
+    std::vector<float>& tensor, std::vector<size_t>& invalid_idxs){
   // TODO LOAD THIS TOO
   std::vector<float> _img_means = {12.97};
   std::vector<float> _img_stds = {12.35};
@@ -341,7 +341,7 @@ void Segmentation::_makeTensor(
       }
 
       int buffer_idx = channel_offset * i + pixel_id;
-    //   ((float*)_hostBuffers[_inBindIdx])[buffer_idx] = projected_data[pixel_id][i];
+      //   ((float*)_hostBuffers[_inBindIdx])[buffer_idx] = projected_data[pixel_id][i];
       tensor[buffer_idx] = projected_data[pixel_id][i];
     }
   }
@@ -379,90 +379,133 @@ void Segmentation::_destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud)
 }
 
 void Segmentation::maskCloud(const Cloud::Ptr cloud,
-                              cv::Mat mask,
-                              Cloud::Ptr& outCloud,
-                              unsigned char val,
-                              bool organized) {
+                             cv::Mat mask,
+                             Cloud::Ptr& outCloud,
+                             unsigned char val,
+                             bool organized) {
 
-    CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
-    CloudT::Ptr temp2Cloud = pcl::make_shared<CloudT>();
-    size_t numPoints = mask.rows * mask.cols;
+  CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
+  CloudT::Ptr temp2Cloud = pcl::make_shared<CloudT>();
+  size_t numPoints = mask.rows * mask.cols;
 
-    Point p;
-    p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
-    size_t nan_ctr = 0;
-    size_t pt_ctr = 0;
+  Point p;
+  p.x = p.y = p.z = p.intensity = std::numeric_limits<float>::quiet_NaN();
+  size_t nan_ctr = 0;
+  size_t org_pt_ctr = 0;
+  size_t pt_ctr = 0;
+  // for temp2Cloud
+  std::vector<std::vector<PointT>> org_pc(mask.cols,
+                                          std::vector<PointT>(mask.rows, p));
 
-    // for temp2Cloud
-    std::vector<std::vector<PointT>> org_pc(mask.cols,
-                                            std::vector<PointT>(mask.rows, p));
+  assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
 
-    assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
+  std::cerr << "input cloud    w,h,size,is_dense: " <<
+               cloud->width << ", " << cloud->height << ", " <<
+               cloud->points.size() << ", " << cloud->is_dense << "\n";
+  std::cerr << "pre outCloud   w,h,size,is_dense: " <<
+               outCloud->width << ", " << outCloud->height << ", " <<
+               outCloud->points.size() << ", " << outCloud->is_dense << "\n";
+//  std::cerr << "pre temp(2)Cloud w,h,is_dense: " << tempCloud->width << ", " <<
+//               tempCloud->height << ", " << tempCloud->is_dense <<"\n";
 
-        std::cerr << "input cloud w,h,is_dense: " << cloud->width << ", " <<
-                   cloud->height << ", " << cloud->is_dense <<"\n";
-        std::cerr << "pre temp(2)Cloud w,h,is_dense: " << tempCloud->width << ", " <<
-                     tempCloud->height << ", " << tempCloud->is_dense <<"\n";
-        std::cerr << "pre outCloud w,h,is_dense: " << outCloud->width << ", " <<
-                     outCloud->height << ", " << outCloud->is_dense <<"\n";
+  // fill temp2Cloud if organized
+  //        if(organized){
+  auto tpxs = proj_xs;
+  auto tpys = proj_ys;
 
-        // fill temp2Cloud if organized
-//        if(organized){
-            for (size_t i = 0; i < cloud->points.size(); i++) {
-                auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
-                if (m == val) {
-                    org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];// !xy flip!
-                }
-            }
+  for (size_t i = 0; i < cloud->points.size(); i++) {
+    auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
+    if (m == val) {
+      org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];// !xy flip!
+    }
+  }
 
-            for (size_t i = 0; i < mask.cols; ++i) {
-                for (size_t j = 0; j < mask.rows; ++j) {
-                    temp2Cloud->points.push_back(org_pc[i][j]);
-                    pt_ctr++;
-                }
-            }
+  for (size_t i = 0; i < mask.cols; ++i) {
+    for (size_t j = 0; j < mask.rows; ++j) {
+      temp2Cloud->points.push_back(org_pc[i][j]);
+      if(!std::isnan(org_pc[i][j].x)){
+        org_pt_ctr++;
+//      } else {
+//        std::cerr << "org_pc[i][j] [i,j,p.x,p.y,p.z,p.intensity]: [" <<
+//                     i << ", " << j << ", " << p.x << ", " <<
+//                     p.y << ", " << p.z << ", " << p.intensity << "]\n";
+      }
+    }
+  }
+  std::cerr << "mid temp2Cloud w,h,size,is_dense: " <<
+               temp2Cloud->width << ", " << temp2Cloud->height << ", " <<
+               temp2Cloud->points.size() << ", " << temp2Cloud->is_dense << "\n";
+//  temp2Cloud->width = _img_w;
+//  temp2Cloud->height = _img_h;
+//  temp2Cloud->is_dense = false;
+  //        }
+//  std::cerr << "proj_xs,ys len: [" << proj_xs.size() << ", " <<
+//               proj_ys.size() << "]\n";
 
-            temp2Cloud->is_dense = (cloud->points.size() == numPoints);
-            temp2Cloud->width = _img_w;
-            temp2Cloud->height = _img_h;
-
-            std::vector<int> indices;
-            pcl::removeNaNFromPointCloud(*temp2Cloud, *outCloud, indices);
-//        }
+  if (tpxs == proj_xs && tpys == proj_ys) {
+      std::cerr << "proj_xys same in both loops.\n";
+  } else {
+      std::cerr << "proj_xys ****DIFF**** in both loops.\n";
+  }
 
   for (int i = 0; i < numPoints; i++) {
     auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
     if(m == val){
-        tempCloud->points.push_back(cloud->points[i]);
+      tempCloud->points.push_back(cloud->points[i]);
+      ++pt_ctr;
     } else if(organized){
       tempCloud->points.push_back(p);
     }
   }
+  std::cerr << "mid tempCloud  w,h,size,is_dense: " <<
+               tempCloud->width << ", " << tempCloud->height << ", " <<
+               tempCloud->points.size() << ", " << tempCloud->is_dense << "\n";
 
-  pcl::copyPointCloud(*temp2Cloud, *outCloud);
   if(organized){
+//    outCloud->clear();
     if (_do_destagger){
       _destaggerCloud(tempCloud, outCloud);
     } else {
-       outCloud = tempCloud;
+      pcl::copyPointCloud(*temp2Cloud, *outCloud); // *temp2Cloud breaks it
     }
     outCloud->width = _img_w;
     outCloud->height = _img_h;
-    outCloud->is_dense = true;
+    outCloud->is_dense = (cloud->points.size() == numPoints); // old = true;
   } else {
-    outCloud->width = outCloud->points.size();
+    tempCloud->width = tempCloud->points.size();
+    tempCloud->height = 1;
+    pcl::io::savePCDFile("/home/mchang/Downloads/norg_tempCloud.pcd", *tempCloud);
+
+    std::vector<int> indices;
+    pcl::removeNaNFromPointCloud(*temp2Cloud, *outCloud, indices);
+
+    temp2Cloud->width = org_pt_ctr;//temp2Cloud->points.size();
+    temp2Cloud->height = 1;
+//    pcl::io::savePCDFile("/home/mchang/Downloads/norg_temp2Cloud.pcd", *temp2Cloud);
+
+    outCloud->width = outCloud->points.size(); //old: outCloud
     outCloud->height = 1;
     outCloud->is_dense = false;
+//    pcl::io::savePCDFile("/home/mchang/Downloads/norg_outCloud.pcd", *outCloud);
+//    pcl::io::savePCDFile("/home/mchang/Downloads/postNaN_temp2Cloud.pcd", *temp2Cloud);
+//    std::cerr << "**********indices.size(): " << indices.size() << "\n";
   }
 
-  // outCloud->header = cloud->header;
-  std::cerr << "post tempCloud w,h,is_dense: " << tempCloud->width << ", " <<
-               tempCloud->height << ", " << tempCloud->is_dense <<"\n";
-  std::cerr << "post temp2Cloud w,h,is_dense: " << temp2Cloud->width << ", " <<
-               temp2Cloud->height << ", " << temp2Cloud->is_dense <<"\n";
-  std::cerr << "post outCloud w,h,is_dense: " << outCloud->width << ", " <<
-               outCloud->height << ", " << outCloud->is_dense <<"\n";
+  std::cerr << "post tempCloud  w,h,size,is_dense: " <<
+               tempCloud->width << ", " << tempCloud->height << ", " <<
+               tempCloud->points.size() << ", " << tempCloud->is_dense << "\n";
+  std::cerr << "post temp2Cloud w,h,size,is_dense: " <<
+               temp2Cloud->width << ", " << temp2Cloud->height << ", " <<
+               temp2Cloud->points.size() << ", " << temp2Cloud->is_dense << "\n";
+  std::cerr << "post outCloud   w,h,size,is_dense: " <<
+               outCloud->width << ", " << outCloud->height << ", " <<
+               outCloud->points.size() << ", " << outCloud->is_dense << "\n";
+  std::cerr << "inference.cpp maskCloud() (org_)pt_ctr = [" << org_pt_ctr
+            << ", " << pt_ctr << "]\n";
+
   outCloud->header = cloud->header;
+
+  // ^ repeated in SloamNode.cpp, but needed for tree/groundCloud viz.
 }
 
 //void Segmentation::maskCloud(const CloudT::Ptr cloud,
@@ -615,14 +658,14 @@ void Segmentation::_mask(const float* output,
       int buffer_idx = channel_offset * i + pixel_id;
       // if(output[max_idx] < output[buffer_idx] && output[buffer_idx] > 0.8){
       if(output[max_idx] < output[buffer_idx]){
-            max_idx = buffer_idx;
-            out_idx = static_cast<unsigned char>(i);
-        }
+        max_idx = buffer_idx;
+        out_idx = static_cast<unsigned char>(i);
       }
-      if(out_idx == 2) out_idx = 255;
-      max.push_back(out_idx);
-      class_counts[out_idx]++;
     }
+    if(out_idx == 2) out_idx = 255;
+    max.push_back(out_idx);
+    class_counts[out_idx]++;
+  }
 
   for(const int idx : invalid_idxs){
     max[idx] = 0;
@@ -635,7 +678,7 @@ void Segmentation::_mask(const float* output,
 
 
   std::cerr << "count [0,1,255] = [" << class_counts[0] << ", " <<
-            class_counts[1] << ", " << class_counts[255] << "]\n";
+               class_counts[1] << ", " << class_counts[255] << "]\n";
 
 }
 
@@ -675,198 +718,198 @@ void Segmentation::_argmax(const float *in, cv::Mat& maskImg){
 }
 
 void Segmentation::runERF(cv::Mat& rImg, cv::Mat& maskImg){
-    cv::Mat pImg(rImg.rows, rImg.cols, CV_32FC2, cv::Scalar(0));
-    _preProcessRange(rImg, pImg, 30);
+  cv::Mat pImg(rImg.rows, rImg.cols, CV_32FC2, cv::Scalar(0));
+  _preProcessRange(rImg, pImg, 30);
 
-    std::vector<float> outputTensorValues(_outputTensorSize);
-    std::vector<float> inputTensorValues(_inputTensorSize);
+  std::vector<float> outputTensorValues(_outputTensorSize);
+  std::vector<float> inputTensorValues(_inputTensorSize);
 
-    auto imgSize = pImg.rows * pImg.cols * pImg.channels();
-    memcpy(inputTensorValues.data(), pImg.data, imgSize * sizeof(float));
-    std::cout << "Tensor size: " << _inputTensorSize << std::endl;
-    std::cout << "Tensor size: " << _outputTensorSize << std::endl;
-    std::cout << "Data size: " << imgSize << std::endl;
+  auto imgSize = pImg.rows * pImg.cols * pImg.channels();
+  memcpy(inputTensorValues.data(), pImg.data, imgSize * sizeof(float));
+  std::cout << "Tensor size: " << _inputTensorSize << std::endl;
+  std::cout << "Tensor size: " << _outputTensorSize << std::endl;
+  std::cout << "Data size: " << imgSize << std::endl;
 
-    std::vector<Ort::Value> inputTensors;
-    std::vector<Ort::Value> outputTensors;
-    inputTensors.push_back(Ort::Value::CreateTensor<float>(
-        *_memoryInfo, inputTensorValues.data(), _inputTensorSize, _inputDims.data(),
-        _inputDims.size()));
+  std::vector<Ort::Value> inputTensors;
+  std::vector<Ort::Value> outputTensors;
+  inputTensors.push_back(Ort::Value::CreateTensor<float>(
+                           *_memoryInfo, inputTensorValues.data(), _inputTensorSize, _inputDims.data(),
+                           _inputDims.size()));
 
-    outputTensors.push_back(Ort::Value::CreateTensor<float>(
-        *_memoryInfo, outputTensorValues.data(), _outputTensorSize,
-        _outputDims.data(), _outputDims.size()));
+  outputTensors.push_back(Ort::Value::CreateTensor<float>(
+                            *_memoryInfo, outputTensorValues.data(), _outputTensorSize,
+                            _outputDims.data(), _outputDims.size()));
 
-    _session->Run(Ort::RunOptions{nullptr}, _inputNames.data(),
+  _session->Run(Ort::RunOptions{nullptr}, _inputNames.data(),
                 inputTensors.data(), 1, _outputNames.data(),
                 outputTensors.data(), 1);
 
-    float* outData = outputTensors.front().GetTensorMutableData<float>();
-    // int dims[] = {3,64,2048};
-    // cv::Mat result = cv::Mat(3, dims, CV_32F, outData);
-    // cv::FileStorage file("/opt/bags/inf/res.ext", cv::FileStorage::WRITE);
-    // Write to file!
-    // file << "matName" << result;
-    // std::cout << sizeof(outData) << std::endl;
-    _argmax(outData, maskImg);
+  float* outData = outputTensors.front().GetTensorMutableData<float>();
+  // int dims[] = {3,64,2048};
+  // cv::Mat result = cv::Mat(3, dims, CV_32F, outData);
+  // cv::FileStorage file("/opt/bags/inf/res.ext", cv::FileStorage::WRITE);
+  // Write to file!
+  // file << "matName" << result;
+  // std::cout << sizeof(outData) << std::endl;
+  _argmax(outData, maskImg);
 }
 
 void Segmentation::cloudToCloudVector(const Cloud::Ptr &cloud, std::vector<float> &cloudVector) const{
-    for (const auto& point : cloud->points) {
-      cloudVector.push_back(point.x);
-      cloudVector.push_back(point.y);
-      cloudVector.push_back(point.z);
-      cloudVector.push_back(point.intensity);
-    }
-    std::cout << "cloudVector of size: " << cloudVector.size() << std::endl;
-    //std::cout << "cloudVector.front(): " << cloudVector.front() << std::endl;
-    //std::cout << "cloudVector.back(): " << cloudVector.back() << std::endl;
+  for (const auto& point : cloud->points) {
+    cloudVector.push_back(point.x);
+    cloudVector.push_back(point.y);
+    cloudVector.push_back(point.z);
+    cloudVector.push_back(point.intensity);
+  }
+  std::cout << "cloudVector of size: " << cloudVector.size() << std::endl;
+  //std::cout << "cloudVector.front(): " << cloudVector.front() << std::endl;
+  //std::cout << "cloudVector.back(): " << cloudVector.back() << std::endl;
 }
 
 void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
                                        NetworkInput& netInput){
-    std::vector<float> cloudVector;
-    cloudToCloudVector(cloud, cloudVector);
+  std::vector<float> cloudVector;
+  cloudToCloudVector(cloud, cloudVector);
 
-    if (_verbose) {
-      std::cout << "Projecting data" << std::endl;
-      _timer.tic();
-    }
-    // added rgs, xps, and yps projected indices stored from sortOrder()
-    netInput = _doProjection(cloudVector, cloud->width * cloud->height);//, &_rgs);//,
-//                             &_rgs, &_xps, &_yps);
+  if (_verbose) {
+    std::cout << "Projecting data" << std::endl;
+    _timer.tic();
+  }
+  // added rgs, xps, and yps projected indices stored from sortOrder()
+  netInput = _doProjection(cloudVector, cloud->width * cloud->height);//, &_rgs);//,
+  //                             &_rgs, &_xps, &_yps);
 
-    // taken from sm_prog. create cv::Mat objs
-    // TODO: replace w/ _HesaiImages struct, make lightweight
-    cv::Size s(_img_w, _img_h);
-    cv::Mat range_image = cv::Mat(s, CV_8U);
-    cv::Mat range_image_float = cv::Mat(s, CV_32F);
-    cv::Mat mask_image(s, CV_8U);
-//    std::cerr << "cv::Mat imgs created, with:\n";
-//    std::cerr << "height = " << s.height << "\n";
-//    std::cerr << "width " << s.width << "\n";
+  // taken from sm_prog. create cv::Mat objs
+  // TODO: replace w/ _HesaiImages struct, make lightweight
+  cv::Size s(_img_w, _img_h);
+  cv::Mat range_image = cv::Mat(s, CV_8U);
+  cv::Mat range_image_float = cv::Mat(s, CV_32F);
+  cv::Mat mask_image(s, CV_8U);
+  //    std::cerr << "cv::Mat imgs created, with:\n";
+  //    std::cerr << "height = " << s.height << "\n";
+  //    std::cerr << "width " << s.width << "\n";
 
-    // fill range images w projected vals.
-//   for (int i = 0; i < _img_h*_img_w; ++i) {
-//       range_image_float.at<float>(proj_ys[i],proj_xs[i]) = _rgs[i];
-//   }
-//   range_image_float *= 255.0/50.5;
-//   range_image_float.convertTo(range_image, CV_8U);
+  // fill range images w projected vals.
+  //   for (int i = 0; i < _img_h*_img_w; ++i) {
+  //       range_image_float.at<float>(proj_ys[i],proj_xs[i]) = _rgs[i];
+  //   }
+  //   range_image_float *= 255.0/50.5;
+  //   range_image_float.convertTo(range_image, CV_8U);
 
-//    std::vector<float> flattened_inp;
-//    for (int i = 0; i < _img_h*_img_w; ++i) {
-//        size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
-//        flattened_inp.push_back(netInput[proj_idx][0]);
-//    }
-    // cv::FileStorage file("/opt/bags/inf/inp.ext", cv::FileStorage::WRITE);
-    // file << "mat" << result;
+  //    std::vector<float> flattened_inp;
+  //    for (int i = 0; i < _img_h*_img_w; ++i) {
+  //        size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
+  //        flattened_inp.push_back(netInput[proj_idx][0]);
+  //    }
+  // cv::FileStorage file("/opt/bags/inf/inp.ext", cv::FileStorage::WRITE);
+  // file << "mat" << result;
 
-    if (_verbose) {
-      _timer.toc();
-    }
+  if (_verbose) {
+    _timer.toc();
+  }
 }
 
 
 void Segmentation::runNetwork(NetworkInput &netInput, cv::Mat &maskImg){
-    std::vector<float> outputTensorValues(_outputTensorSize);
-    std::vector<float> inputTensorValues(_inputTensorSize);
-    std::vector<size_t> invalid_idxs;
+  std::vector<float> outputTensorValues(_outputTensorSize);
+  std::vector<float> inputTensorValues(_inputTensorSize);
+  std::vector<size_t> invalid_idxs;
 
-    if(_verbose){
-      std::cout << "Making tensor" << std::endl;
-      _timer.tic();
-    }
-    _makeTensor(netInput, inputTensorValues, invalid_idxs);
+  if(_verbose){
+    std::cout << "Making tensor" << std::endl;
+    _timer.tic();
+  }
+  _makeTensor(netInput, inputTensorValues, invalid_idxs);
 
-    if(_verbose){
-      _timer.toc();
-    }
+  if(_verbose){
+    _timer.toc();
+  }
 
-    if(_verbose){
-      std::cout << "Running Inference" << std::endl;
-      _timer.tic();
-    }
-    std::vector<Ort::Value> inputTensors;
-    std::vector<Ort::Value> outputTensors;
-    inputTensors.push_back(Ort::Value::CreateTensor<float>(
-        *_memoryInfo, inputTensorValues.data(), _inputTensorSize, _inputDims.data(),
-        _inputDims.size()));
+  if(_verbose){
+    std::cout << "Running Inference" << std::endl;
+    _timer.tic();
+  }
+  std::vector<Ort::Value> inputTensors;
+  std::vector<Ort::Value> outputTensors;
+  inputTensors.push_back(Ort::Value::CreateTensor<float>(
+                           *_memoryInfo, inputTensorValues.data(), _inputTensorSize, _inputDims.data(),
+                           _inputDims.size()));
 
-    outputTensors.push_back(Ort::Value::CreateTensor<float>(
-        *_memoryInfo, outputTensorValues.data(), _outputTensorSize,
-        _outputDims.data(), _outputDims.size()));
+  outputTensors.push_back(Ort::Value::CreateTensor<float>(
+                            *_memoryInfo, outputTensorValues.data(), _outputTensorSize,
+                            _outputDims.data(), _outputDims.size()));
 
-    _session->Run(Ort::RunOptions{nullptr}, _inputNames.data(),
+  _session->Run(Ort::RunOptions{nullptr}, _inputNames.data(),
                 inputTensors.data(), 1, _outputNames.data(),
                 outputTensors.data(), 1);
-    if(_verbose){
-      _timer.toc();
-    }
+  if(_verbose){
+    _timer.toc();
+  }
 
-    if(_verbose){
-      std::cout << "Masking" << std::endl;
-      _timer.tic();
-    }
+  if(_verbose){
+    std::cout << "Masking" << std::endl;
+    _timer.tic();
+  }
 
-    float* outData = outputTensors.front().GetTensorMutableData<float>();
-    _mask(outData, invalid_idxs, maskImg);
+  float* outData = outputTensors.front().GetTensorMutableData<float>();
+  _mask(outData, invalid_idxs, maskImg);
 
-    if(_verbose){
-      _timer.toc();
-    }
+  if(_verbose){
+    _timer.toc();
+  }
 }
 
 void Segmentation::run(const CloudT::Ptr cloud, cv::Mat& maskImg){
-    NetworkInput ni;
-    ROS_INFO_STREAM("Segmentation::run 1");
-    cloudToNetworkInput(cloud, ni);
-    ROS_INFO_STREAM("Segmentation::run 2");
-    runNetwork(ni, maskImg);
+  NetworkInput ni;
+  ROS_INFO_STREAM("Segmentation::run 1");
+  cloudToNetworkInput(cloud, ni);
+  ROS_INFO_STREAM("Segmentation::run 2");
+  runNetwork(ni, maskImg);
 }
 
 void Segmentation::speedTest(const Cloud::Ptr cloud, size_t numTests){
-    std::vector<float> cloudVector;
-    for (const auto& point : cloud->points) {
-        cloudVector.push_back(point.x); cloudVector.push_back(point.y);
-        cloudVector.push_back(point.z); cloudVector.push_back(point.intensity);
-    }
+  std::vector<float> cloudVector;
+  for (const auto& point : cloud->points) {
+    cloudVector.push_back(point.x); cloudVector.push_back(point.y);
+    cloudVector.push_back(point.z); cloudVector.push_back(point.intensity);
+  }
 
-    std::cout << "PROJECTION" << std::endl;
-    auto netInput = _doProjection(cloudVector, cloud->width*cloud->height);
+  std::cout << "PROJECTION" << std::endl;
+  auto netInput = _doProjection(cloudVector, cloud->width*cloud->height);
 
-    std::cout << "TO TENSOR" << std::endl;
-    std::vector<float> outputTensorValues(_outputTensorSize);
-    std::vector<float> inputTensorValues(_inputTensorSize);
-    std::vector<size_t> invalid_idxs;
-    _makeTensor(netInput, inputTensorValues, invalid_idxs);
+  std::cout << "TO TENSOR" << std::endl;
+  std::vector<float> outputTensorValues(_outputTensorSize);
+  std::vector<float> inputTensorValues(_inputTensorSize);
+  std::vector<size_t> invalid_idxs;
+  _makeTensor(netInput, inputTensorValues, invalid_idxs);
 
-    std::cout << "SETUP" << std::endl;
-    std::vector<Ort::Value> inputTensors;
-    std::vector<Ort::Value> outputTensors;
-    inputTensors.push_back(Ort::Value::CreateTensor<float>(
-        *_memoryInfo, inputTensorValues.data(), _inputTensorSize, _inputDims.data(),
-        _inputDims.size()));
+  std::cout << "SETUP" << std::endl;
+  std::vector<Ort::Value> inputTensors;
+  std::vector<Ort::Value> outputTensors;
+  inputTensors.push_back(Ort::Value::CreateTensor<float>(
+                           *_memoryInfo, inputTensorValues.data(), _inputTensorSize, _inputDims.data(),
+                           _inputDims.size()));
 
-    outputTensors.push_back(Ort::Value::CreateTensor<float>(
-        *_memoryInfo, outputTensorValues.data(), _outputTensorSize,
-        _outputDims.data(), _outputDims.size()));
+  outputTensors.push_back(Ort::Value::CreateTensor<float>(
+                            *_memoryInfo, outputTensorValues.data(), _outputTensorSize,
+                            _outputDims.data(), _outputDims.size()));
 
-    // Measure latency
-    std::chrono::steady_clock::time_point begin =
-        std::chrono::steady_clock::now();
-    for (int i = 0; i < numTests; i++)
-    {
+  // Measure latency
+  std::chrono::steady_clock::time_point begin =
+      std::chrono::steady_clock::now();
+  for (int i = 0; i < numTests; i++)
+  {
     _session->Run(Ort::RunOptions{nullptr}, _inputNames.data(),
-                inputTensors.data(), 1, _outputNames.data(),
-                outputTensors.data(), 1);
-    }
-    std::chrono::steady_clock::time_point end =
-        std::chrono::steady_clock::now();
-    std::cout << "Minimum Inference Latency: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                         .count() /
-                     static_cast<float>(numTests)
-              << " ms" << std::endl;
+                  inputTensors.data(), 1, _outputNames.data(),
+                  outputTensors.data(), 1);
+  }
+  std::chrono::steady_clock::time_point end =
+      std::chrono::steady_clock::now();
+  std::cout << "Minimum Inference Latency: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                     begin)
+               .count() /
+               static_cast<float>(numTests)
+            << " ms" << std::endl;
 }
 } //namespace segmentation
