@@ -82,8 +82,8 @@ namespace sloam
     Instance graphDetector_;
     MapManager semanticMap_;
     FeatureModelParams fmParams_;
-    int lidar_w = 2000;
-    int lidar_h = 32;
+    int lidar_w = 2048;
+    int lidar_h = 64;
     cv::Mat maskViz_;
 
     std::vector<SE3> trajectory;

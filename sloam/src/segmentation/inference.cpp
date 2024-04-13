@@ -389,9 +389,10 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   size_t numPoints = mask.rows * mask.cols;
   Point p;
   p.x = p.y = p.z = p.intensity = std::numeric_limits<float>::quiet_NaN();
-  size_t nan_ctr = 0;
   size_t org_pt_ctr = 0;
-  size_t pt_ctr = 0;
+  size_t org_nan_ctr = 0;
+  size_t pt_ctr = 0;  
+  size_t nan_ctr = 0;
   // for temp2Cloud
   auto tpxs = proj_xs;
   auto tpys = proj_ys;
@@ -422,16 +423,18 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 
   for (size_t i = 0; i < mask.cols; ++i) {
     for (size_t j = 0; j < mask.rows; ++j) {
-      temp2Cloud->points.push_back(org_pc[i][j]);
-      if(!std::isnan(org_pc[i][j].x)){
+      auto np = org_pc[i][j];
+      temp2Cloud->points.push_back(np);
+      if(!std::isnan(np.x) && !std::isnan(np.y) && !std::isnan(np.z)){
         org_pt_ctr++;
         if (oc_idcs[i][j] != -1){
           t2c_idcs.insert(oc_idcs[i][j]);
         }
-//      } else {
+      } else {
 //        std::cerr << "org_pc[i][j] [i,j,p.x,p.y,p.z,p.intensity]: [" <<
 //                     i << ", " << j << ", " << p.x << ", " <<
 //                     p.y << ", " << p.z << ", " << p.intensity << "]\n";
+        ++org_nan_ctr;
       }
     }
   }
@@ -450,6 +453,7 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 
     } else if(organized){
       tempCloud->points.push_back(p);
+      ++nan_ctr;
     }
   }
 //  std::cerr << "tc_idcs.size() : " << tc_idcs.size() << "\n";
@@ -462,7 +466,6 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
                       std::inserter(diff_idcs, diff_idcs.begin()));
   CloudT::Ptr diff_pc = pcl::make_shared<CloudT>();
   pcl::copyPointCloud(*cloud, diff_idcs, *diff_pc);
-  std::cerr << "diff_idcs.size() : " << diff_idcs.size() << "\n";
   diff_pc->width = diff_pc->points.size();
   diff_pc->height = 1;
   diff_pc->is_dense = false;
@@ -522,9 +525,14 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   std::cerr << "post outCloud   w,h,size,is_dense: " <<
                outCloud->width << ", " << outCloud->height << ", " <<
                outCloud->points.size() << ", " << outCloud->is_dense << "\n";
-  std::cerr << "inference.cpp maskCloud() (org_)pt_ctr = [" << org_pt_ctr
-            << ", " << pt_ctr << "]\n";
-
+  std::cerr << "[org_{pt,nan}_ctr] [{pt,nan}_ctr] = ["
+            << org_pt_ctr << ", " << org_nan_ctr << "] ["
+            << pt_ctr << ", " << nan_ctr << "]\n";
+  //print pixel counts
+  cv::Mat binaryMask = (mask == val);
+  int px_count = cv::countNonZero(binaryMask);
+  std::cerr << "mask.val, px_count: [" << static_cast<int>(val) <<
+               ", " << px_count << "]\n";
   outCloud->header = cloud->header;
   // ^ repeated in SloamNode.cpp, but need for tree/groundCloud viz.
 }
@@ -535,15 +543,11 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 //                             unsigned char val,
 //                             bool organised) {
 
-//    //  Cloud::Ptr tempCloud(new Cloud); old way. now, better:
 //    CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
 //    CloudT::Ptr temp2Cloud = pcl::make_shared<CloudT>();
-//    // ROS_INFO_STREAM("pre inference.cpp maskCloud(temp.dense?): " << tempCloud->is_dense);
 //    //tempCloud->is_dense = true; // assume cloud has no NaN or inf points //breaks?
 //    size_t numPoints = mask.rows * mask.cols;
 //    assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
-////    ROS_INFO_STREAM("inference.cpp maskCloud() mask pixels: " << numPoints);
-////    ROS_INFO_STREAM("inference.cpp maskCloud() cloud points: " << cloud->size());
 
 //    Point p;
 //    p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
@@ -609,25 +613,6 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 ////          ++pt_ctr;
 ////        }
 ////      }
-//// retrying old shit.
-//      for (int i = 0; i < numPoints; i++) {
-//          // this won't work if using _yps, _xps
-//          size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
-//          //    std::cerr << "[i, proj_xs[i], proj_ys]: [" << i <<
-//          //                 ", " << proj_xs[i] << ", " << proj_ys[i] << "]\n";
-//          unsigned char m = mask.data[proj_idx * sizeof(unsigned char)];
-
-//          if(m == val){
-//              tempCloud->points.push_back(cloud->points[i]);
-//              ++pt_ctr;
-//          } else if(organised){
-//              tempCloud->points.push_back(p);
-//              ++nan_ctr;
-//          }
-//      }
-//      pcl::copyPointCloud(*tempCloud, *outCloud);
-
-
 //    }
 
 //    //print pixel counts

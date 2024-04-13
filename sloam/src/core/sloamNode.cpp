@@ -83,7 +83,8 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     lidar_h = nh_.param("seg_lidar_h", 64);
     bool do_destagger = nh_.param("do_destagger", true);
     // img_d = 1 ...
-    auto temp_seg = boost::make_shared<seg::Segmentation>(modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
+    auto temp_seg = boost::make_shared<seg::Segmentation>(
+          modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
     segmentator_ = std::move(temp_seg);
 
     semanticMap_ = MapManager();
@@ -324,12 +325,12 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     // RUN SEGMENTATION
     cv::Mat rMask = cv::Mat::zeros(lidar_h, lidar_w, CV_8U);
 
-    //ROS_WARN_STREAM("sloamNode.cpp run() rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
+    ROS_WARN_STREAM("sloamNode.cpp run() rMask[h,w]: " << rMask.rows << ", " << rMask.cols);
     segmentator_->run(cloud, rMask);
 
     // copy the mask for visualisation
     rMask.copyTo(maskViz_);
-    cv::Size sz(2000,64);
+    cv::Size sz(lidar_w,2*lidar_h);
     cv::resize(rMask, maskViz_, sz);
 
     // replace some colors to make the mask easier to see on RViz
