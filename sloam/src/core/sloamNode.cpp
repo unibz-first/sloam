@@ -193,8 +193,6 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
   bool SLOAMNode::runSegmentation(CloudT::Ptr cloud, ros::Time stamp,
                                   SE3 &outPose, const cv::Mat& rMask,
                                   SloamInput& sloamIn, SloamOutput& sloamOut) {
-//    cv::imshow("whatever", rMask);
-//    cv::waitKey(1);
 
     CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
     segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false); //old: false
@@ -210,7 +208,6 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     SLOAMNode::groundCloudPub_.publish(groundCloud_msg);
 
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
-    //ROS_INFO_STREAM("sloamNode.cpp the treeCloud init'd!");
     segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
     // Trellis graph instance segmentation
     graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
@@ -330,7 +327,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
 
     // copy the mask for visualisation
     rMask.copyTo(maskViz_);
-    cv::Size sz(lidar_w,2*lidar_h);
+    cv::Size sz(lidar_w,128);
     cv::resize(rMask, maskViz_, sz);
 
     // replace some colors to make the mask easier to see on RViz

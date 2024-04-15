@@ -664,7 +664,8 @@ void Segmentation::_mask(const float* output,
 
   std::cerr << "count [0,1,255] = [" << class_counts[0] << ", " <<
                class_counts[1] << ", " << class_counts[255] << "]\n";
-
+  ROS_WARN("Sum of class_counts[0], class_counts[1], and class_counts[255]: %d",
+           class_counts[0] + class_counts[1] + class_counts[255]);
 }
 
 void Segmentation::_preProcessRange(const cv::Mat& img, cv::Mat& pImg, float maxDist) {
