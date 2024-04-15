@@ -1,5 +1,5 @@
 #include "inference.h"
-
+#include <filesystem>
 
 namespace seg {
 
@@ -378,11 +378,32 @@ void Segmentation::_destaggerCloud(const Cloud::Ptr cloud, Cloud::Ptr& outCloud)
   }
 }
 
+int Segmentation::countValidPoints(const Cloud::Ptr cloud){
+
+  size_t counter = 0;
+  for(const auto& pp : cloud->points){
+    if(!std::isfinite(pp.x) || !std::isfinite(pp.y) || !std::isfinite(pp.z) || !std::isfinite(pp.intensity)){
+      continue;
+    }
+    counter++;
+  }
+  return counter;
+}
+
 void Segmentation::maskCloud(const Cloud::Ptr cloud,
                              cv::Mat mask,
                              Cloud::Ptr& outCloud,
                              unsigned char val,
                              bool organized) {
+  if (val == 1) {
+    std::cerr << "=================== MASKING GROUND START ===================== \n";
+  } else if (val == 255) {
+    std::cerr << "=================== MASKING TREES  START ===================== \n";
+  }
+
+  std::filesystem::path temp_folder_path("/tmp/sloam_debug/");
+  std::string temp_folder = temp_folder_path.string();
+  std::filesystem::create_directories(temp_folder_path);
 
   CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
   CloudT::Ptr temp2Cloud = pcl::make_shared<CloudT>();
@@ -391,7 +412,7 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   p.x = p.y = p.z = p.intensity = std::numeric_limits<float>::quiet_NaN();
   size_t org_pt_ctr = 0;
   size_t org_nan_ctr = 0;
-  size_t pt_ctr = 0;  
+  size_t pt_ctr = 0;
   size_t nan_ctr = 0;
   // for temp2Cloud
   auto tpxs = proj_xs;
@@ -409,15 +430,49 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   // fill temp2Cloud if organized
   //        if(organized){
 
+  std::pair<int,int> xy_coord;
+  std::set<std::pair<int,int>> xy_coords;
+  std::vector<std::pair<int,int>> xy_coordsv;
+
+  for(int i = 0; i < cloud->points.size(); i++){
+    xy_coord = std::pair<int,int>(proj_xs[i],proj_ys[i]);
+
+
+    size_t a = xy_coords.size();
+
+
+    xy_coords.insert(xy_coord);
+    if(xy_coords.size() == a){
+      std::cerr << xy_coord.first << ", " << xy_coord.second << "\n";
+    }
+    xy_coordsv.push_back(xy_coord);
+
+
+  }
+
+  std::cerr << "HOW MANY UNIQUE COORDINATES???? " << xy_coords.size() << std::endl;
+  std::cerr << "HOW MANY        COORDINATES???? " << xy_coordsv.size() << std::endl;
+
+
+
   std::set<int> tc_idcs, t2c_idcs;
   std::vector<std::vector<int>> oc_idcs(mask.cols, std::vector<int>(mask.rows, -1)); // for removeNaN test...
-
+size_t valid_point_counter_t2c = 0;
   for (size_t i = 0; i < cloud->points.size(); i++) {
     auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
     if (m == val) {
       org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];// !xy flip!
+
+
+      auto pp = cloud->points[i];
+
+      if(!std::isfinite(pp.x) || !std::isfinite(pp.y) || !std::isfinite(pp.z) || !std::isfinite(pp.intensity)){
+        std::cerr << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
+      }
+
       oc_idcs[proj_xs[i]][proj_ys[i]] = i;
 //      std::cout << i << ", " << proj_xs[i] << ", " << proj_ys[i] << "\n";
+    valid_point_counter_t2c++;
     }
   }
 
@@ -472,7 +527,7 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   std::cerr << "mid diffCloud  w,h,size,is_dense: " <<
                diff_pc->width << ", " << diff_pc->height << ", " <<
                diff_pc->points.size() << ", " << diff_pc->is_dense << "\n";
-  pcl::io::savePCDFile("/home/mchang/Downloads/diff_tmp.pcd", *diff_pc);
+  pcl::io::savePCDFile(temp_folder + "diff_tmp.pcd", *diff_pc);
 
 
   if(organized){
@@ -489,31 +544,31 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
     temp2Cloud->width = _img_w;
     temp2Cloud->height = _img_h;
     temp2Cloud->is_dense = true;
-    pcl::io::savePCDFile("/home/mchang/Downloads/tCloud_tmp2.pcd", *temp2Cloud);
+    pcl::io::savePCDFile(temp_folder + "tCloud_tmp2.pcd", *temp2Cloud);
     outCloud->width = _img_w;
     outCloud->height = _img_h;
     outCloud->is_dense = (cloud->points.size() == numPoints); // old = true;
-    pcl::io::savePCDFile("/home/mchang/Downloads/tCloud.pcd", *outCloud);
+    pcl::io::savePCDFile(temp_folder + "tCloud.pcd", *outCloud);
 
   } else {
-    pcl::copyPointCloud(*temp2Cloud, *outCloud);
-//    std::vector<int> indices;
-//    pcl::removeNaNFromPointCloud(*temp2Cloud, indices);
+//    pcl::copyPointCloud(*temp2Cloud, *outCloud);
+    std::vector<int> indices;
+    pcl::removeNaNFromPointCloud(*temp2Cloud, *outCloud, indices);
 
     //change dims to save .pcd ASCII files
     tempCloud->width = tempCloud->points.size();
     tempCloud->height = 1;
-    pcl::io::savePCDFile("/home/mchang/Downloads/gCloud_tmp.pcd", *tempCloud);
+    pcl::io::savePCDFile(temp_folder + "gCloud_tmp.pcd", *tempCloud);
 
     temp2Cloud->width = temp2Cloud->points.size();
     temp2Cloud->height = 1;
-    pcl::io::savePCDFile("/home/mchang/Downloads/gCloud_tmp2.pcd", *temp2Cloud);
+    pcl::io::savePCDFile(temp_folder + "gCloud_tmp2.pcd", *temp2Cloud);
 
     outCloud->width = outCloud->points.size(); //old: outCloud
     outCloud->height = 1;
     outCloud->is_dense = false;
-    pcl::io::savePCDFile("/home/mchang/Downloads/gCloud.pcd", *outCloud);
-//    pcl::io::savePCDFile("/home/mchang/Downloads/postNaN_gCloud_tmp2.pcd", *temp2Cloud);
+    pcl::io::savePCDFile(temp_folder + "gCloud.pcd", *outCloud);
+//    pcl::io::savePCDFile(temp_folder + "postNaN_gCloud_tmp2.pcd", *temp2Cloud);
   }
 
   std::cerr << "post tempCloud  w,h,size,is_dense: " <<
@@ -535,6 +590,20 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
                ", " << px_count << "]\n";
   outCloud->header = cloud->header;
   // ^ repeated in SloamNode.cpp, but need for tree/groundCloud viz.
+
+  auto t2cvp =  countValidPoints(temp2Cloud);
+  auto tcvp = countValidPoints(tempCloud);
+  std::cerr << "temp2Cloud VALID POINTS: " << t2cvp << std::endl;
+  std::cerr << "tempCloud VALID POINTS: " << tcvp << std::endl;
+  std::cerr << "validpointcounter " << valid_point_counter_t2c << std::endl;
+  std::cerr << "DIFF: " << t2cvp - tcvp << std::endl;
+
+
+  if (val == 1) {
+    std::cerr << "=================== MASKING GROUND END   ===================== \n";
+  } else if (val == 255) {
+    std::cerr << "=================== MASKING TREES  END   ===================== \n";
+  }
 }
 
 //void Segmentation::maskCloud(const CloudT::Ptr cloud,
@@ -634,7 +703,10 @@ void Segmentation::_mask(const float* output,
   size_t channel_offset = _img_w * _img_h;
   unsigned char _n_classes = 3;
   std::vector<unsigned char> max;
-  std::vector<int> class_counts(_n_classes, 0);
+  std::unordered_map<int,int> class_counts;
+  class_counts[0] = 0;
+  class_counts[1] = 0;
+  class_counts[255] = 0;
 
   for (int pixel_id = 0; pixel_id < channel_offset; pixel_id++){
     int max_idx = pixel_id;
@@ -647,10 +719,16 @@ void Segmentation::_mask(const float* output,
         out_idx = static_cast<unsigned char>(i);
       }
     }
-    if(out_idx == 2) out_idx = 255;
+    if(out_idx == 2) {
+      out_idx = 255;
+    }
     max.push_back(out_idx);
     class_counts[out_idx]++;
   }
+  if (class_counts[255] > channel_offset) {
+    throw std::runtime_error("Class count 255 is bigger than the entire cloud size");
+  }
+  std::cerr << "class counts size (max is: " << channel_offset << "): " << class_counts[255] << "\n";
 
   for(const int idx : invalid_idxs){
     max[idx] = 0;
