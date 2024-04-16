@@ -228,9 +228,7 @@ std::vector<std::vector<float>> Segmentation::_doProjection(
     float intensity = scan[4 * i + 3];
     float range = std::sqrt(x*x+y*y+z*z);
     ranges.push_back(range);
-    if(rgs != nullptr){
-      rgs->push_back(range);
-    }
+
     xs.push_back(x);
     ys.push_back(y);
     zs.push_back(z);
@@ -390,6 +388,53 @@ int Segmentation::countValidPoints(const Cloud::Ptr cloud){
   return counter;
 }
 
+// receives input cloud and tempCloud arguments,
+// populates tempCloud bottom-up
+
+void Segmentation::_padCloud(const Cloud::Ptr cloud,
+                            cv::Mat mask,
+                            std::set<int> tc_idcs,
+                            unsigned char val,
+                            Cloud::Ptr& tempCloud,
+                            bool organized){
+  size_t pt_ctr = 0;
+  size_t nan_ctr = 0;
+  Point np; //
+  np.x = np.y = np.z = np.intensity = std::numeric_limits<float>::quiet_NaN(); //
+  size_t numPoints = mask.rows * mask.cols;
+
+  // make tempCloud first ??
+//  for (point : cloud->points){
+//    auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
+//    if(m == val){
+//      tempCloud->points.push_back(cloud->points[i]);
+//      tc_idcs.insert(i);
+//      ++pt_ctr;
+//  }
+  assert(proj_ys.size()==numPoints && proj_xs.size()==numPoints); // ???
+  for (int i = 0; i < numPoints; i++) {
+    if(i < cloud->points.size()){ // avoid segfault: restrict i's scope
+      auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
+      if(m == val){
+        tempCloud->points.push_back(cloud->points[i]);
+        tc_idcs.insert(i);
+        ++pt_ctr;
+      } else if(organized){ // awkward but apparently necessary double-bool
+        tempCloud->points.push_back(np);
+        ++nan_ctr;
+      }
+    }
+    if(organized){ // 'top off' for(i | mask.size > cloud.size)
+      tempCloud->points.push_back(np);
+    }
+  }
+  std::cerr << "pad tempCloud  w,h,size,is_dense: " <<
+               tempCloud->width << ", " << tempCloud->height << ", " <<
+               tempCloud->points.size() << ", " << tempCloud->is_dense << "\n";
+  std::cerr << "padCloud [pt_ctr, nan_ctr, total] = ["
+            << pt_ctr << ", " << nan_ctr << ", " << pt_ctr + nan_ctr << "]\n"; //
+}
+
 void Segmentation::maskCloud(const Cloud::Ptr cloud,
                              cv::Mat mask,
                              Cloud::Ptr& outCloud,
@@ -408,15 +453,14 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
   CloudT::Ptr temp2Cloud = pcl::make_shared<CloudT>();
   size_t numPoints = mask.rows * mask.cols;
-  Point p;
-  p.x = p.y = p.z = p.intensity = std::numeric_limits<float>::quiet_NaN();
+  Point p; //
+  p.x = p.y = p.z = p.intensity = std::numeric_limits<float>::quiet_NaN(); //
   size_t org_pt_ctr = 0;
   size_t org_nan_ctr = 0;
-  size_t pt_ctr = 0;
-  size_t nan_ctr = 0;
+  size_t pt_ctr = 0; //
+  size_t nan_ctr = 0; //
   // for temp2Cloud
-  auto tpxs = proj_xs;
-  auto tpys = proj_ys;
+  // refactor to switch rows cols
   std::vector<std::vector<PointT>> org_pc(mask.cols,
                                           std::vector<PointT>(mask.rows, p));
   assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
@@ -433,53 +477,80 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   std::pair<int,int> xy_coord;
   std::set<std::pair<int,int>> xy_coords;
   std::vector<std::pair<int,int>> xy_coordsv;
+  pcl::PointCloud<pcl::PointXY> cloudcoords;
 
+  // debug proj_xys unique coords
   for(int i = 0; i < cloud->points.size(); i++){
     xy_coord = std::pair<int,int>(proj_xs[i],proj_ys[i]);
-
-
+    pcl::PointXY pp;
+    pp.x = proj_xs[i];
+    pp.y = proj_ys[i];
+    cloudcoords.points.push_back(pp);
     size_t a = xy_coords.size();
-
-
     xy_coords.insert(xy_coord);
     if(xy_coords.size() == a){
-      std::cerr << xy_coord.first << ", " << xy_coord.second << "\n";
+//      std::cerr << i << ", " << proj_xs[i] << ", " << proj_ys[i] << "\n";
+      // conclusion: only proj_ys >= 31;
     }
     xy_coordsv.push_back(xy_coord);
-
-
   }
-
+  cloudcoords.width = cloudcoords.size();
+  cloudcoords.height = 1;
+  try {
+  pcl::io::savePCDFileASCII(temp_folder + std::to_string(cloud->header.stamp) + "coordinates.pcd", cloudcoords);
+} catch(...){
+  }
   std::cerr << "HOW MANY UNIQUE COORDINATES???? " << xy_coords.size() << std::endl;
   std::cerr << "HOW MANY        COORDINATES???? " << xy_coordsv.size() << std::endl;
 
+  // show unique xys as an image
+  cv::Mat coords_img(mask.rows, mask.cols, CV_8UC1, cv::Scalar(0));
+  for(const auto& coord : xy_coords){
+    if(coord.first < mask.cols && coord.second < mask.rows){
+      coords_img.at<uchar>(coord.second, coord.first) = 255;
+    }
+  }
+  cv::imwrite(temp_folder + "coords_img.png", coords_img);
 
-
-  std::set<int> tc_idcs, t2c_idcs;
+  std::set<int> tc_idcs, t2c_idcs; //tc_idcs
   std::vector<std::vector<int>> oc_idcs(mask.cols, std::vector<int>(mask.rows, -1)); // for removeNaN test...
-size_t valid_point_counter_t2c = 0;
+  size_t valid_point_counter_t2c = 0;
+
+  std::ofstream opc_csv(temp_folder + std::to_string(cloud->header.stamp) +
+                        "_opc.csv");
+  opc_csv << "i, proj_xs, proj_ys, x, y, z" << std::endl;
   for (size_t i = 0; i < cloud->points.size(); i++) {
     auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
     if (m == val) {
       org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];// !xy flip!
-
-
       auto pp = cloud->points[i];
+      opc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] << ", " <<
+                pp.x << ", " << pp.y << ", " << pp.z << std::endl;
 
-      if(!std::isfinite(pp.x) || !std::isfinite(pp.y) || !std::isfinite(pp.z) || !std::isfinite(pp.intensity)){
+      if(!std::isfinite(pp.x) || !std::isfinite(pp.y) ||
+         !std::isfinite(pp.z) || !std::isfinite(pp.intensity)){
         std::cerr << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
       }
 
       oc_idcs[proj_xs[i]][proj_ys[i]] = i;
 //      std::cout << i << ", " << proj_xs[i] << ", " << proj_ys[i] << "\n";
     valid_point_counter_t2c++;
+    } else {
+      opc_csv << i << ", nan, nan, nan, nan, nan" << std::endl;
     }
   }
-
+  opc_csv.close();
+  std::cout << "opc_csv written ++++++++++++++++++++++++++++++++++++++++++++\n";
+  std::ofstream t2c_csv(temp_folder + std::to_string(cloud->header.stamp) +
+                     "_t2c.csv");
+  t2c_csv << "org_pt_ctr, i, j, x, y, z" << std::endl;
   for (size_t i = 0; i < mask.cols; ++i) {
     for (size_t j = 0; j < mask.rows; ++j) {
       auto np = org_pc[i][j];
       temp2Cloud->points.push_back(np);
+      auto oid = org_pt_ctr + org_nan_ctr;
+      t2c_csv << oid << ", " << i << ", " << j << ", " <<
+                np.x << ", " << np.y << ", " << np.z << std::endl;
       if(!std::isnan(np.x) && !std::isnan(np.y) && !std::isnan(np.z)){
         org_pt_ctr++;
         if (oc_idcs[i][j] != -1){
@@ -493,25 +564,49 @@ size_t valid_point_counter_t2c = 0;
       }
     }
   }
+  t2c_csv.close();
+  std::cout << "t2c_csv written ++++++++++++++++++++++++++++++++++++++++++++\n";
 //  std::cerr << "mid t2c_idcs.size() : " << t2c_idcs.size() << "\n";
   std::cerr << "mid temp2Cloud w,h,size,is_dense: " <<
                temp2Cloud->width << ", " << temp2Cloud->height << ", " <<
                temp2Cloud->points.size() << ", " << temp2Cloud->is_dense << "\n";
   //        }
 
-  for (int i = 0; i < numPoints; i++) {
-    auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
-    if(m == val){
-      tempCloud->points.push_back(cloud->points[i]);
-      tc_idcs.insert(i);
-      ++pt_ctr;
+  //debug via writing to file.csv
+  std::ofstream tc_csv(temp_folder + std::to_string(cloud->header.stamp) +
+                     "_tc.csv");
+  tc_csv << "i, proj_xs, proj_ys, x, y, z" << std::endl;
 
+  // ********************replace w padCloud() vvvvv
+  for (int i = 0; i < numPoints; i++) {
+    if(i < cloud->points.size()){
+      auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
+      if(m == val){
+        tempCloud->points.push_back(cloud->points[i]);
+        // store i, proj_xys[i] point.{x,y,z} in .csv
+        tc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] << ", " <<
+                  cloud->points[i].x << ", " << cloud->points[i].y << ", " <<
+                  cloud->points[i].z << std::endl;
+        tc_idcs.insert(i);
+        ++pt_ctr;
+      } else if(organized){
+        tempCloud->points.push_back(p);
+        tc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] <<
+                  ", nan, nan, nan" << std::endl;
+        ++nan_ctr;
+      }
     } else if(organized){
       tempCloud->points.push_back(p);
+      tc_csv << i << ", nan, nan, nan, nan, nan" << std::endl;
       ++nan_ctr;
     }
+
   }
-//  std::cerr << "tc_idcs.size() : " << tc_idcs.size() << "\n";
+  // ********************replace w _padCloud() ^^^^^
+  tc_csv.close();
+  std::cout << "tc_csv written ++++++++++++++++++++++++++++++++++++++++++++\n";
+//  _padCloud(cloud, mask, tc_idcs, val, tempCloud, organized);
+  //  std::cerr << "tc_idcs.size() : " << tc_idcs.size() << "\n";
   std::cerr << "mid tempCloud  w,h,size,is_dense: " <<
                tempCloud->width << ", " << tempCloud->height << ", " <<
                tempCloud->points.size() << ", " << tempCloud->is_dense << "\n";
@@ -547,13 +642,13 @@ size_t valid_point_counter_t2c = 0;
     pcl::io::savePCDFile(temp_folder + "tCloud_tmp2.pcd", *temp2Cloud);
     outCloud->width = _img_w;
     outCloud->height = _img_h;
-    outCloud->is_dense = (cloud->points.size() == numPoints); // old = true;
+    outCloud->is_dense = true; //(cloud->points.size() == numPoints); // old = true;
     pcl::io::savePCDFile(temp_folder + "tCloud.pcd", *outCloud);
 
   } else {
-//    pcl::copyPointCloud(*temp2Cloud, *outCloud);
-    std::vector<int> indices;
-    pcl::removeNaNFromPointCloud(*temp2Cloud, *outCloud, indices);
+    pcl::copyPointCloud(*tempCloud, *outCloud);
+//    std::vector<int> indices;
+//    pcl::removeNaNFromPointCloud(*temp2Cloud, *outCloud, indices);
 
     //change dims to save .pcd ASCII files
     tempCloud->width = tempCloud->points.size();
@@ -582,7 +677,7 @@ size_t valid_point_counter_t2c = 0;
                outCloud->points.size() << ", " << outCloud->is_dense << "\n";
   std::cerr << "[org_{pt,nan}_ctr] [{pt,nan}_ctr] = ["
             << org_pt_ctr << ", " << org_nan_ctr << "] ["
-            << pt_ctr << ", " << nan_ctr << "]\n";
+            << pt_ctr << ", " << nan_ctr << "]\n"; //
   //print pixel counts
   cv::Mat binaryMask = (mask == val);
   int px_count = cv::countNonZero(binaryMask);
@@ -605,97 +700,6 @@ size_t valid_point_counter_t2c = 0;
     std::cerr << "=================== MASKING TREES  END   ===================== \n";
   }
 }
-
-//void Segmentation::maskCloud(const CloudT::Ptr cloud,
-//                             cv::Mat mask,
-//                             CloudT::Ptr& outCloud,
-//                             unsigned char val,
-//                             bool organised) {
-
-//    CloudT::Ptr tempCloud = pcl::make_shared<CloudT>();
-//    CloudT::Ptr temp2Cloud = pcl::make_shared<CloudT>();
-//    //tempCloud->is_dense = true; // assume cloud has no NaN or inf points //breaks?
-//    size_t numPoints = mask.rows * mask.cols;
-//    assert((mask.rows*mask.cols) == (cloud->width*cloud->height));
-
-//    Point p;
-//    p.x = p.y = p.z = std::numeric_limits<float>::quiet_NaN();
-//    size_t nan_ctr = 0;
-//    size_t pt_ctr = 0;
-
-//    // new way: temp2Cloud via org_pc
-//    if (organised) {
-//      std::vector<std::vector<PointT>> org_pc(mask.cols,
-//                                              std::vector<PointT>(mask.rows, p));
-
-//      for (size_t i = 0; i < cloud->points.size(); i++) {
-//        auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
-//        if (m == val) {
-//          org_pc[proj_xs[i]][proj_ys[i]] = cloud->points[i];// achtung! xy flip!
-//        }
-//      }
-
-//      for (size_t i = 0; i < mask.cols; ++i) {
-//        for (size_t j = 0; j < mask.rows; ++j) {
-//          temp2Cloud->points.push_back(org_pc[i][j]);
-//          pt_ctr++;
-//        }
-//      }
-
-//      temp2Cloud->is_dense = (cloud->points.size() == numPoints);
-//      temp2Cloud->width = _img_w;
-//      temp2Cloud->height = _img_h;
-
-//      // old way: tempCloud
-//      for (int i = 0; i < numPoints; i++) {
-//          size_t proj_idx = proj_ys[i] * _img_w + proj_xs[i];
-//          unsigned char m = mask.data[proj_idx * sizeof(unsigned char)];
-
-//          if(m == val){
-//              tempCloud->points.push_back(cloud->points[i]);
-//              ++pt_ctr;
-//          } else if(organised){
-//              tempCloud->points.push_back(p);
-//              ++nan_ctr;
-//          }
-//      }
-
-//      if (_do_destagger){
-//          _destaggerCloud(tempCloud, outCloud);
-//          std::cerr << "destaggering\n";
-//      } else {
-//        pcl::copyPointCloud(*temp2Cloud, *outCloud);
-//      }
-
-//    } else {
-
-//      outCloud->width = outCloud->points.size();
-//      outCloud->height = 1;
-//      outCloud->is_dense = false; //test
-//      outCloud->clear();
-
-//// new shit:
-////      for (int i = 0; i < cloud->points.size(); i++) {
-////        auto m = mask.at<uchar>(proj_ys[i], proj_xs[i]);
-////        if (m == val) {
-////          outCloud->points.push_back(cloud->points[i]);
-////          ++pt_ctr;
-////        }
-////      }
-//    }
-
-//    //print pixel counts
-//    cv::Mat binaryMask = (mask == val);
-//    int px_count = cv::countNonZero(binaryMask);
-//    std::cerr << "mask.val, px_count: [" << static_cast<int>(val) <<
-//                 ", " << px_count << "]\n";
-
-//    // test uncomment
-////    std::cerr << "outCloud is dense?: " << outCloud->is_dense << "\n";
-//    auto outCloud_diff = numPoints - outCloud->points.size();
-//    ROS_INFO_STREAM("numPoints: " << numPoints << "; outCloud diff = " << outCloud_diff);
-//    ROS_INFO_STREAM("points in outCloud: " << outCloud->points.size());
-//}
 
 void Segmentation::_mask(const float* output,
                          const std::vector<size_t>& invalid_idxs,
@@ -728,7 +732,7 @@ void Segmentation::_mask(const float* output,
   if (class_counts[255] > channel_offset) {
     throw std::runtime_error("Class count 255 is bigger than the entire cloud size");
   }
-  std::cerr << "class counts size (max is: " << channel_offset << "): " << class_counts[255] << "\n";
+//  std::cerr << "class counts size (max is: " << channel_offset << "): " << class_counts[255] << "\n";
 
   for(const int idx : invalid_idxs){
     max[idx] = 0;
@@ -742,7 +746,7 @@ void Segmentation::_mask(const float* output,
 
   std::cerr << "count [0,1,255] = [" << class_counts[0] << ", " <<
                class_counts[1] << ", " << class_counts[255] << "]\n";
-  ROS_WARN("Sum of class_counts[0], class_counts[1], and class_counts[255]: %d",
+  ROS_WARN("Sum of class_counts[0,1,255]: %d",
            class_counts[0] + class_counts[1] + class_counts[255]);
 }
 
@@ -832,6 +836,12 @@ void Segmentation::cloudToCloudVector(const Cloud::Ptr &cloud, std::vector<float
 
 void Segmentation::cloudToNetworkInput(const CloudT::Ptr& cloud,
                                        NetworkInput& netInput){
+  try {
+  pcl::io::savePCDFileASCII("/tmp/sloam_debug/" + std::to_string(cloud->header.stamp) + ".pcd", *cloud );
+  } catch(...){
+
+  }
+
   std::vector<float> cloudVector;
   cloudToCloudVector(cloud, cloudVector);
 

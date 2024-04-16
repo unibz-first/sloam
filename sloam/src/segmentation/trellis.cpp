@@ -20,27 +20,39 @@ void Instance::findClusters(const CloudT::Ptr pc,
       PointT, pcl::Label>::Ptr euclidean_cluster_comparator =
       pcl::make_shared<pcl::EuclideanClusterComparator<PointT, pcl::Label>>();
   euclidean_cluster_comparator->setInputCloud(pc);
+  std::cerr << "pc findClusters  w,h,size,is_dense: " <<
+               pc->width << ", " << pc->height << ", " <<
+               pc->points.size() << ", " << pc->is_dense << "\n";
+  std::cout << "pc for findClusters organized?: " << pc->isOrganized() << "\n";
   euclidean_cluster_comparator->setDistanceThreshold(1.0, false);
 
+  int big_dist;
+  for (size_t i = 0; i < pc->points.size() - 1; i++) {
+      for (size_t j = i + 1; j < pc->points.size(); j++) {
+          float distance = pcl::euclideanDistance(pc->points[i], pc->points[j]);
+          if(distance > 1.0){
+            std::cout << "Distance between points " << i << " and " << j << ": " << distance << "\n";
+            big_dist++;
+          }
+      }
+  }
   pcl::OrganizedConnectedComponentSegmentation<PointT, pcl::Label>
       euclidean_segmentation(euclidean_cluster_comparator);
   euclidean_segmentation.setInputCloud(pc);
   euclidean_segmentation.segment(euclidean_labels, label_indices);
 
-  // pcl::PCDWriter writer;
-  // for (size_t i = 0; i < label_indices.size (); i++){
-  //   // std::cout << "LABEL INDICES SIZE: " <<
-  //   label_indices.at(i).indices.size() << std::endl; if
-  //   (label_indices.at(i).indices.size () > 80){
-  //     CloudT cluster;
-  //     pcl::copyPointCloud(*pc, label_indices.at(i).indices, cluster);
-  //     ROS_DEBUG_STREAM(cluster.width << " x " << cluster.height);
-  //     // clusters.push_back(cluster);
-  //     std::stringstream ss;
-  //     ss << "/opt/bags/inf/pcds/sloam/" << "cloud_cluster_" << i << ".pcd";
-  //     writer.write<PointT> (ss.str (), cluster, false);
-  //   }
-  // }
+  for (size_t i = 0; i < label_indices.size() ; i++){
+    std::cout << "LABEL INDICES SIZE: " <<
+                 label_indices.at(i).indices.size() << std::endl;
+    if (label_indices.at(i).indices.size () > 15){
+      CloudT cluster;
+      pcl::copyPointCloud(*pc, label_indices.at(i).indices, cluster);
+      ROS_DEBUG_STREAM(cluster.width << " x " << cluster.height);
+      std::stringstream ss;
+      ss << "/tmp/sloam_debug/" << "cloud_cluster_" << i << ".pcd";
+      pcl::io::savePCDFile(ss.str(), cluster, false);
+    }
+  }
 }
 
 TreeVertex Instance::computeTreeVertex(CloudT::Ptr beam, int label){
@@ -107,6 +119,7 @@ void Instance::findTrees(const CloudT::Ptr pc,
     std::vector<pcl::PointIndices>& label_indices, std::vector<std::vector<TreeVertex>>& landmarks){
 
     for (size_t i = 0; i < label_indices.size(); i++){
+
       if (label_indices.at(i).indices.size () > 80){
         std::vector<TreeVertex> tree;
         for (int row_idx = pc->height - 1; row_idx >= 0; --row_idx) {
@@ -117,11 +130,13 @@ void Instance::findTrees(const CloudT::Ptr pc,
               beam->points.push_back(p);
             }
           }
+          std::cerr << "Beam size: " << beam->points.size() << "\n";
           if(beam->points.size() > 3){
             TreeVertex v = computeTreeVertex(beam, i);
             if(v.isValid) tree.push_back(v);
           }
         }
+        std::cerr << "Tree size: " << tree.size() << "\n";
         if(tree.size() > 16){
           if(tree.size() > 56) {
             tree.resize(56);
@@ -137,8 +152,8 @@ void Instance::computeGraph(const CloudT::Ptr cloud, const CloudT::Ptr tree_clou
   pcl::PointCloud<pcl::Label> euclidean_labels;
   std::vector<pcl::PointIndices> label_indices;
   findClusters(tree_cloud, euclidean_labels, label_indices);
-  std::cerr << tree_cloud->points.size() << "\n";
+  std::cerr << "Number of clusters found: " << label_indices.size() << "\n";
   findTrees(tree_cloud, euclidean_labels, label_indices, landmarks);
-  std::cerr << "++++++++++++++++++++++++++++++++++++++ 1\n";
+  std::cerr << "Num landmarks found: " << landmarks.size() << "\n";
 
 }

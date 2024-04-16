@@ -90,6 +90,12 @@ class Segmentation {
 private:
 
     int countValidPoints(const Cloud::Ptr cloud);
+    void _padCloud(const Cloud::Ptr cloud,
+                   cv::Mat mask,
+                   std::set<int> tc_idcs,
+                   unsigned char val,
+                   Cloud::Ptr& tempCloud,
+                   bool organized);
     void _argmax(const float *in, cv::Mat& maskImg);
 
     void _preProcessRange(const cv::Mat& img, cv::Mat& pImg, float maxDist);

@@ -36,7 +36,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: Image
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -484,7 +484,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 21.493854522705078
+      Distance: 22.796157836914062
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -492,17 +492,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 42.673927307128906
-        Y: 36.22590637207031
-        Z: 1.09340238571167
+        X: 53.42161178588867
+        Y: 33.22412872314453
+        Z: 1.0934549570083618
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7347967624664307
+      Pitch: 0.4897969961166382
       Target Frame: base
-      Yaw: 5.915062427520752
+      Yaw: 5.975069046020508
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 16.295198440551758

@@ -66,7 +66,8 @@ SegNode::SegNode(const ros::NodeHandle &nh)
   int lidar_h = nh_.param("seg_lidar_h", 64);
   bool do_destagger = nh_.param("do_destagger", true);
 
-  auto temp_seg = boost::make_shared<seg::Segmentation>(modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
+  auto temp_seg = boost::make_shared<seg::Segmentation>(
+        modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
   segmentator_ = std::move(temp_seg);
   prevStamp = ros::Time::now();
 
@@ -90,8 +91,7 @@ SegNode::SegNode(const ros::NodeHandle &nh)
 
 CloudT::Ptr SegNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
 {
-//  CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
-    CloudT::Ptr vtxCloud = pcl::make_shared<CloudT>();
+  CloudT::Ptr vtxCloud = pcl::make_shared<CloudT>();
   std::vector<float> color_values((int)landmarks.size());
   std::iota(std::begin(color_values), std::end(color_values), 1);
   std::random_device rd;

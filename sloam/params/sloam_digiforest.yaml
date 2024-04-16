@@ -5,9 +5,9 @@ sloam:
   default_tree_radius: 0.6 # default tree radius if estimated value seems wrong (due to outliers for example)
   max_dist_to_centroid: 0.6 # consider points further than this parameter to the node centroid to be outliers
   max_ground_dist: 20.0 # max distance from sensor for ground point to be considered
-  min_ground_dist: 2.0 # min distance from sensor for ground point to be considered
+  min_ground_dist: 1.0 # min distance from sensor for ground point to be considered
   max_lidar_dist: 25.0 # max distance from sensor for a point to be considered
-  min_landmark_height: 1.0 # if a tree is smaller than this, it will be discarded
+  min_landmark_height: 0.6 # if a tree is smaller than this, it will be discarded
   min_landmark_size: 5 # min number of trellis nodes for a tree
   min_vertex_size: 4 # min required number of point in a trellis node
   min_tree_models: 5 # min number of tree models in observation to perform pose estimation
@@ -29,7 +29,7 @@ sloam:
   robot_frame_id: pandar  # old: base
   # TODO: include sloam/sloam/models/ dir, commit to remote origin unibz-first fork
   seg_model_path: $(env HOME)/Downloads/darknet21pp_hpc.onnx # path to segmentation model
-  seg_lidar_fov: 31 # lidar FOV
+  seg_lidar_fov: 16.0 # lidar FOV
   seg_lidar_w: 2000 # lidar width
   seg_lidar_h: 32 # lidar height
   cloud_topic: /hesai/pandar
