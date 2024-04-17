@@ -78,13 +78,14 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     std::string modelFilepath;
     nh_.param<std::string>("seg_model_path", modelFilepath, "");
     ROS_DEBUG_STREAM("MODEL PATH: " << modelFilepath);
-    float fov = nh_.param("seg_lidar_fov", 22.5);
+    float fov_up = nh_.param("seg_lidar_fov", 22.5);
+    float fov_down = nh_.param("seg_lidar_fov_down", fov_up);
     lidar_w = nh_.param("seg_lidar_w", 2048);
     lidar_h = nh_.param("seg_lidar_h", 64);
     bool do_destagger = nh_.param("do_destagger", true);
     // img_d = 1 ...
     auto temp_seg = boost::make_shared<seg::Segmentation>(
-          modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
+          modelFilepath, fov_up, -fov_down, lidar_w, lidar_h, 1, do_destagger);
     segmentator_ = std::move(temp_seg);
 
     semanticMap_ = MapManager();
@@ -212,6 +213,7 @@ SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
     // Trellis graph instance segmentation
     graphDetector_.computeGraph(cloud, treeCloud, sloamIn.landmarks);
     ROS_WARN_STREAM("Num tree features available: " << treeCloud->size());
+
     //publishing labeled treeCloud
     sensor_msgs::PointCloud2 treeCloud_msg;
     pcl::toROSMsg(*treeCloud, treeCloud_msg);

@@ -29,7 +29,8 @@ sloam:
   robot_frame_id: pandar  # old: base
   # TODO: include sloam/sloam/models/ dir, commit to remote origin unibz-first fork
   seg_model_path: $(env HOME)/Downloads/darknet21pp_hpc.onnx # path to segmentation model
-  seg_lidar_fov: 16.0 # lidar FOV
+  seg_lidar_fov: 15.0 # lidar FOV
+  seg_lidar_fov_down: 16.0 # use abs val.
   seg_lidar_w: 2000 # lidar width
   seg_lidar_h: 32 # lidar height
   cloud_topic: /hesai/pandar
