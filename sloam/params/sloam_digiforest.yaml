@@ -27,10 +27,10 @@ sloam:
   map_frame_id: map
   odom_frame_id: odom_vilens
   robot_frame_id: pandar  # old: base
-  # TODO: include sloam/sloam/models/ dir, commit to remote origin unibz-first fork
   seg_model_path: $(env HOME)/Downloads/darknet21pp_hpc.onnx # path to segmentation model
-  seg_lidar_fov: 15.0 # lidar FOV
-  seg_lidar_fov_down: 16.0 # use abs val.
+  seg_lidar_fov: 15.0 # lidar FOV (HESAI _SHOULD_ BE +15, w 1deg v-resolution)
+  # TODO: analyze _doBrojection() angle calc vector for all 32 channels
+  seg_lidar_fov_down: 16.1 # abs val. +0.1 makes it work bc of clamp().
   seg_lidar_w: 2000 # lidar width
   seg_lidar_h: 32 # lidar height
   cloud_topic: /hesai/pandar

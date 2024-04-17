@@ -12,6 +12,29 @@
 
 Instance::Instance() { tree_id_ = 0; }
 
+void Instance::computeClusterDistances(const CloudT::Ptr pc,
+                                       const std::vector<pcl::PointIndices> &label_indices) {
+  std::vector<Eigen::Vector4f> centroids;
+  int size_thresh = 15;
+  for (const auto& indices : label_indices) {
+    if (indices.indices.size() > size_thresh) {
+      CloudT cluster;
+      pcl::copyPointCloud(*pc, indices.indices, cluster);
+      Eigen::Vector4f centroid;
+      pcl::compute3DCentroid(cluster, centroid);
+      centroids.push_back(centroid);
+    }
+  }
+
+  for (size_t i = 0; i < centroids.size() - 1; i++) {
+    for (size_t j = i + 1; j < centroids.size(); j++) {
+      float distance = (centroids[i] - centroids[j]).norm();
+      std::cout << "Distance between clusters " << i << " and " << j << ": " << distance << "\n";
+    }
+  }
+  std::cout << "clusters > " << size_thresh << ": " << centroids.size() << "\n";
+}
+
 void Instance::findClusters(const CloudT::Ptr pc,
                             pcl::PointCloud<pcl::Label> &euclidean_labels,
                             std::vector<pcl::PointIndices> &label_indices) {
@@ -20,30 +43,18 @@ void Instance::findClusters(const CloudT::Ptr pc,
       PointT, pcl::Label>::Ptr euclidean_cluster_comparator =
       pcl::make_shared<pcl::EuclideanClusterComparator<PointT, pcl::Label>>();
   euclidean_cluster_comparator->setInputCloud(pc);
-  std::cerr << "pc findClusters  w,h,size,is_dense: " <<
-               pc->width << ", " << pc->height << ", " <<
-               pc->points.size() << ", " << pc->is_dense << "\n";
+//  euclidean_cluster_comparator->compare();
   std::cout << "pc for findClusters organized?: " << pc->isOrganized() << "\n";
-  euclidean_cluster_comparator->setDistanceThreshold(1.0, false);
+  euclidean_cluster_comparator->setDistanceThreshold(2.0f, false);
 
-  int big_dist;
-  for (size_t i = 0; i < pc->points.size() - 1; i++) {
-      for (size_t j = i + 1; j < pc->points.size(); j++) {
-          float distance = pcl::euclideanDistance(pc->points[i], pc->points[j]);
-          if(distance > 1.0){
-            std::cout << "Distance between points " << i << " and " << j << ": " << distance << "\n";
-            big_dist++;
-          }
-      }
-  }
   pcl::OrganizedConnectedComponentSegmentation<PointT, pcl::Label>
       euclidean_segmentation(euclidean_cluster_comparator);
   euclidean_segmentation.setInputCloud(pc);
   euclidean_segmentation.segment(euclidean_labels, label_indices);
 
   for (size_t i = 0; i < label_indices.size() ; i++){
-    std::cout << "LABEL INDICES SIZE: " <<
-                 label_indices.at(i).indices.size() << std::endl;
+//    std::cout << "LABEL INDICES SIZE: " <<
+//                 label_indices.at(i).indices.size() << std::endl;
     if (label_indices.at(i).indices.size () > 15){
       CloudT cluster;
       pcl::copyPointCloud(*pc, label_indices.at(i).indices, cluster);
@@ -73,7 +84,8 @@ TreeVertex Instance::computeTreeVertex(CloudT::Ptr beam, int label){
   return v;
 }
 
-bool Instance::computeVertexProperties(CloudT::Ptr &pc, Slash& filteredPoints, PointT& median_point, Scalar& radius) {
+bool Instance::computeVertexProperties(CloudT::Ptr &pc, Slash& filteredPoints,
+                                       PointT& median_point, Scalar& radius) {
   // Compute median in each x,y,z
   int num_points = pc->points.size();
   int middle_point = (int)(num_points / 2.0);
@@ -153,6 +165,8 @@ void Instance::computeGraph(const CloudT::Ptr cloud, const CloudT::Ptr tree_clou
   std::vector<pcl::PointIndices> label_indices;
   findClusters(tree_cloud, euclidean_labels, label_indices);
   std::cerr << "Number of clusters found: " << label_indices.size() << "\n";
+  // sanity check distance threshold. delete later.
+  computeClusterDistances(tree_cloud, label_indices);
   findTrees(tree_cloud, euclidean_labels, label_indices, landmarks);
   std::cerr << "Num landmarks found: " << landmarks.size() << "\n";
 

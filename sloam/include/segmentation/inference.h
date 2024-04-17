@@ -68,7 +68,8 @@ class Segmentation {
 
     void runERF(cv::Mat& rImg, cv::Mat& maskImg);
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
-
+    void hesaiCloudToOrganizedCloud(const HesaiPointCloud& cloud,
+                                    CloudT::Ptr& org_cloud) const;
     void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud,
                    unsigned char val, bool organised = false);
     void speedTest(const Cloud::Ptr cloud, size_t numTests);
@@ -90,12 +91,6 @@ class Segmentation {
 private:
 
     int countValidPoints(const Cloud::Ptr cloud);
-    void _padCloud(const Cloud::Ptr cloud,
-                   cv::Mat mask,
-                   std::set<int> tc_idcs,
-                   unsigned char val,
-                   Cloud::Ptr& tempCloud,
-                   bool organized);
     void _argmax(const float *in, cv::Mat& maskImg);
 
     void _preProcessRange(const cv::Mat& img, cv::Mat& pImg, float maxDist);

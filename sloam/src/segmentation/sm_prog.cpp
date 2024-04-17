@@ -7,6 +7,7 @@
 
 #include "hesai_point_types.h"
 #include "inference.h"
+#include "trellis.h"
 
 // using NetworkInput = std::vector<std::vector<float>>;
 
@@ -43,20 +44,20 @@ void maskImgViz(cv::Mat mask_img, bool do_write = false) {
   cv::waitKey(0);
 }
 
-using CloudXYZI = pcl::PointCloud<pcl::PointXYZI>;
+using CloudT = pcl::PointCloud<pcl::PointXYZI>;
 
 int main() {
   std::string home_dir = getenv("HOME");
   std::string seq_dir = home_dir + "/repos/lidar-bonnetal/digikittiforest/sequences";
-  std::string pcd_dir = "/home/mcamurri/Datasets/";////seq_dir + "/00/point_clouds/";
-  std::string pcdfile = pcd_dir + "1693566415538365.pcd";//"cloud_1693566299_538213000.pcd";
+  std::string pcd_dir = seq_dir + "/00/point_clouds/";//"/home/mcamurri/Datasets/";////
+  std::string pcdfile = pcd_dir + "cloud_1693566299_538213000.pcd";//"1693566415538365.pcd";
   std::string model_path = home_dir + "/Downloads/darknet21pp_hpc.onnx";   // /logs/squeezenetV2_1_1_30_2k.onnx";
 
   try {
-    seg::Segmentation imgseg(model_path, 15, -16,
+    seg::Segmentation imgseg(model_path, 15, -16.1,
                              2000, 32, 1, false);
 // create cloud
-    CloudXYZI::Ptr cloud = pcl::make_shared<CloudXYZI>();
+    CloudT::Ptr cloud = pcl::make_shared<CloudT>();
 
     std::cout << "Loading " << pcdfile << " ... \n";
     if (pcl::io::loadPCDFile(pcdfile, *cloud) == 0) {
@@ -73,30 +74,47 @@ int main() {
 
     // seg objects, projection memory
     seg::Segmentation::NetworkInput net_input;
-    std::vector<float> rgs;
-    std::vector<size_t> xps, yps;
+//    std::vector<float> rgs;
+//    std::vector<size_t> xps, yps;
     std::vector<float> scan;
 
 // creating CloudVector
     imgseg.cloudToCloudVector(cloud, scan);
     // build network input
-    net_input = imgseg._doProjection(scan, cloud->width * cloud->height, &rgs,
-                                     &xps, &yps);
-    for (int i = 0; i < xps.size(); i++) {
-      // std::cerr << "Setting pixel y = " << yps[i] << " x = " << xps[i] << "
-      // to " << rgs[i] << "\n"; SLOAM DEFAULT VERSION
-      range_image_float.at<float>(yps[i], xps[i]) = rgs[i];
-    }
-    range_image_float *= 255.0/50.5; // 50 meters range tops
-    // create visible network input
-    range_image_float.convertTo(range_image, CV_8U);
-    cv::imshow("range_image", range_image);
-    cv::waitKey(0);
+    net_input = imgseg._doProjection(scan, cloud->width * cloud->height);//, &rgs,
+//                                     &xps, &yps);
+//    for (int i = 0; i < xps.size(); i++) {
+//      // std::cerr << "Setting pixel y = " << yps[i] << " x = " << xps[i] << "
+//      // to " << rgs[i] << "\n"; SLOAM DEFAULT VERSION
+//      range_image_float.at<float>(proj_ys[i], proj_xs[i]) = ranges[i];
+//    }
+//    range_image_float *= 255.0/50.5; // 50 meters range tops
+//    // create visible network input
+//    range_image_float.convertTo(range_image, CV_8U);
+//    cv::imshow("range_image", range_image);
+//    cv::waitKey(0);
 
     // build mask image from network input
     imgseg.runNetwork(net_input, mask_image);
 
     maskImgViz(mask_image);
+
+    // from sloamNode.cpp SloamNode::runSegmentation
+    CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
+    imgseg.maskCloud(cloud, mask_image, groundCloud, 1, false);
+    groundCloud->header = cloud->header;
+    ROS_WARN_STREAM("Num ground features available: " << groundCloud->width);
+
+    CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
+    imgseg.maskCloud(cloud, mask_image, treeCloud, 255, true);
+    treeCloud->header = cloud->header;
+    ROS_WARN_STREAM("Num tree features available: " << treeCloud->size());
+
+
+    // Trellis graph instance segmentation
+    std::vector<std::vector<TreeVertex>> landmarks;
+//    graphDetector_.computeGraph(cloud, treeCloud, landmarks);
+
   } catch (const Ort::Exception& e) {
     std::cerr << e.what() << std::endl;
     std::cerr << "Ort Error Code: " << e.GetOrtErrorCode() << std::endl;
