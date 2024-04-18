@@ -64,7 +64,7 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
                         "_ohc.csv");
   ohc_csv << "counter, proj_xs, proj_ys, x, y, z" << std::endl;
 
-//  while(counter < hesai_cloud.points.size()){
+  while(counter < hesai_cloud.points.size()){
     for (int i = 0; i < org_cloud->width; i++) {
       for (std::uint16_t j = 0; j < org_cloud->height; j++) {
         if (hesai_cloud.points[counter].ring == j) {
@@ -87,7 +87,7 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
         }
       }
     }
-//  }
+  }
   ohc_csv.close();
   std::cout << "ohc_csv written ++++++++++++++++++++++++++++++++++++++++++++\n";
 }
