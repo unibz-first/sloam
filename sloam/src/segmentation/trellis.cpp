@@ -26,12 +26,12 @@ void Instance::computeClusterDistances(const CloudT::Ptr pc,
     }
   }
 
-  for (size_t i = 0; i < centroids.size() - 1; i++) {
-    for (size_t j = i + 1; j < centroids.size(); j++) {
-      float distance = (centroids[i] - centroids[j]).norm();
-      std::cout << "Distance between clusters " << i << " and " << j << ": " << distance << "\n";
-    }
-  }
+//  for (size_t i = 0; i < centroids.size() - 1; i++) {
+//    for (size_t j = i + 1; j < centroids.size(); j++) {
+//      float distance = (centroids[i] - centroids[j]).norm();
+//      std::cout << "Distance between clusters " << i << " and " << j << ": " << distance << "\n";
+//    }
+//  }
   std::cout << "clusters > " << size_thresh << ": " << centroids.size() << "\n";
 }
 
@@ -127,29 +127,37 @@ bool Instance::computeVertexProperties(CloudT::Ptr &pc, Slash& filteredPoints,
 }
 
 void Instance::findTrees(const CloudT::Ptr pc,
-    pcl::PointCloud<pcl::Label>& euclidean_labels,
-    std::vector<pcl::PointIndices>& label_indices, std::vector<std::vector<TreeVertex>>& landmarks){
+                         pcl::PointCloud<pcl::Label>& euclidean_labels,
+                         std::vector<pcl::PointIndices>& label_indices,
+                         std::vector<std::vector<TreeVertex>>& landmarks){
 
     for (size_t i = 0; i < label_indices.size(); i++){
-
-      if (label_indices.at(i).indices.size () > 80){
+      // TODO: .yaml this 80 shit.
+      if (label_indices.at(i).indices.size () > 30){
         std::vector<TreeVertex> tree;
+//        std::cout << "******************treeID: "<< label_indices.at(i) << "\n";
+        std::cerr << "findTrees TREEID label: " << i << "\n";
         for (int row_idx = pc->height - 1; row_idx >= 0; --row_idx) {
           CloudT::Ptr beam = pcl::make_shared<CloudT>();
           for (size_t col_idx = 0; col_idx < pc->width; ++col_idx) {
+            // if the points of label i at [row*2000 + col]
             if(euclidean_labels.points[row_idx * pc->width + col_idx].label == i){
               PointT p = pc->at(col_idx, row_idx);
               beam->points.push_back(p);
+              std::cerr << "Beam col,row: " << col_idx << "," << row_idx << "\n";
             }
           }
-          std::cerr << "Beam size: " << beam->points.size() << "\n";
+          // TODO: .yaml this shit.
           if(beam->points.size() > 3){
+            std::cerr << "Beam size: " << beam->points.size() << "**********\n";
             TreeVertex v = computeTreeVertex(beam, i);
             if(v.isValid) tree.push_back(v);
           }
         }
-        std::cerr << "Tree size: " << tree.size() << "\n";
-        if(tree.size() > 16){
+        // TODO: .yaml this shit,
+        if(tree.size() > 30){
+          std::cerr << "Tree size: " << tree.size() << "\n";
+          // TODO: .yaml this shit.
           if(tree.size() > 56) {
             tree.resize(56);
           }
