@@ -149,7 +149,12 @@ void Instance::findTrees(const CloudT::Ptr pc,
           }
           // TODO: .yaml this shit.
           if(beam->points.size() > 3){
-            std::cerr << "Beam size: " << beam->points.size() << "**********\n";
+            std::cerr << "Beam size, first, last, row : "
+                      << beam->points.size() << ", "
+                      << beam->points.front() << ", "
+                      << beam->points.back() << ", "
+                      << row_idx << "*************\n";
+//            std::cerr << "Beam col,row: " << col_idx << "," << row_idx << "\n";
             TreeVertex v = computeTreeVertex(beam, i);
             if(v.isValid) tree.push_back(v);
           }

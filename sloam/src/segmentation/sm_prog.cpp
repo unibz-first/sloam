@@ -64,7 +64,7 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
                         "_ohc.csv");
   ohc_csv << "counter, proj_xs, proj_ys, x, y, z" << std::endl;
 
-  while(counter < hesai_cloud.points.size()){
+//  while(counter < hesai_cloud.points.size()){
     for (int i = 0; i < org_cloud->width; i++) {
       for (std::uint16_t j = 0; j < org_cloud->height; j++) {
         if (hesai_cloud.points[counter].ring == j) {
@@ -77,7 +77,11 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
           ohc_csv << counter << ", " << i << ", " << j << ", " <<
                      p.x << ", " << p.y << ", " << p.z << std::endl;
           counter++;
+          if (counter >= hesai_cloud.points.size()){
+            break;
+          }
         } else {
+          // pcl::PointCloud<PointT>::at is row major ; hesai is col-major
           org_cloud->at(i, j).x = std::numeric_limits<float>::quiet_NaN();
           org_cloud->at(i, j).y = std::numeric_limits<float>::quiet_NaN();
           org_cloud->at(i, j).z = std::numeric_limits<float>::quiet_NaN();
@@ -87,7 +91,7 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
         }
       }
     }
-  }
+//  }
   ohc_csv.close();
   std::cout << "ohc_csv written ++++++++++++++++++++++++++++++++++++++++++++\n";
 }
@@ -114,7 +118,7 @@ int main() {
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
 // load cloud
     std::cout << "Loading " << pcdfile << " ... \n";
-    if (pcl::io::loadPCDFile(pcdfile, *hesaiCloud) == 0) {
+    if (pcl::io::loadPCDFile(pcdfile, *cloud) == 0) {
       std::cout << "Loaded " << cloud->width * cloud->height
                 << " data points from .pcd" << std::endl;
     } else {
