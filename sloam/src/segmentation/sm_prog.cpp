@@ -4,6 +4,7 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <string>
+#include <filesystem>
 
 #include "hesai_point_types.h"
 #include "inference.h"
@@ -31,7 +32,8 @@ void netInputToImg(seg::Segmentation::NetworkInput ni, cv::Mat ni_img) {
   //    return ni_img_out;
 }
 
-void maskImgViz(cv::Mat mask_img, bool do_write = false) {
+void maskImgViz(cv::Mat mask_img, bool do_write = false,
+                const std::string& filename = "/tmp/sloam_debug/mask.png") {
   cv::Mat maskViz_ = cv::Mat::zeros(mask_img.size(),mask_img.type());
   mask_img.copyTo(maskViz_); // avoids affecting mask_img input
   cv::MatIterator_<uchar> it;
@@ -44,10 +46,14 @@ void maskImgViz(cv::Mat mask_img, bool do_write = false) {
   cv::Mat maskViz_resize_;
   cv::Size sz(mask_img.cols,128); //resize
   cv::resize(maskViz_, maskViz_resize_, sz);
-  cv::imshow("maskviz", maskViz_resize_); //visalize
+  cv::imshow("maskviz", maskViz_resize_); //visualize
   cv::waitKey(0);
-  cv::imshow("mask_og", mask_img); //visalize sanity check
+  cv::imshow("mask_og", mask_img); //visualize sanity check
   cv::waitKey(0);
+
+  if(do_write){
+      cv::imwrite(filename, maskViz_);
+  }
 }
 
 void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
@@ -58,14 +64,18 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
   org_cloud->is_dense = false;
   org_cloud->points.resize(org_cloud->width * org_cloud->height);
   org_cloud->header = hesai_cloud.header;
-
-  std::ofstream ohc_csv("/tmp/sloam_debug" +
-                        std::to_string(hesai_cloud.header.stamp) +
-                        "_ohc.csv");
+  std::string csv_path = "/tmp/sloam_debug/" +
+          std::to_string(hesai_cloud.header.stamp) + "_ohc.csv";
+  std::ofstream ohc_csv(csv_path);
+  if (!ohc_csv) {
+      std::cerr << "no hesai OFstream .csv file at: " << csv_path << std::endl;
+  } else {
+      std::cout << "Successful OFstream .csv file at: " << csv_path << std::endl;
+  }
   ohc_csv << "counter, proj_xs, proj_ys, x, y, z" << std::endl;
 
-//  while(counter < hesai_cloud.points.size()){
-    for (int i = 0; i < org_cloud->width; i++) {
+
+  for (int i = 0; i < org_cloud->width; i++) {
       for (std::uint16_t j = 0; j < org_cloud->height; j++) {
         if (hesai_cloud.points[counter].ring == j) {
           PointT p;
@@ -77,11 +87,7 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
           ohc_csv << counter << ", " << i << ", " << j << ", " <<
                      p.x << ", " << p.y << ", " << p.z << std::endl;
           counter++;
-          if (counter >= hesai_cloud.points.size()){
-            break;
-          }
         } else {
-          // pcl::PointCloud<PointT>::at is row major ; hesai is col-major
           org_cloud->at(i, j).x = std::numeric_limits<float>::quiet_NaN();
           org_cloud->at(i, j).y = std::numeric_limits<float>::quiet_NaN();
           org_cloud->at(i, j).z = std::numeric_limits<float>::quiet_NaN();
@@ -91,22 +97,25 @@ void hesaiCloudToOrganizedCloud(const HesaiPointCloud& hesai_cloud,
         }
       }
     }
-//  }
   ohc_csv.close();
   std::cout << "ohc_csv written ++++++++++++++++++++++++++++++++++++++++++++\n";
 }
+
 using CloudT = pcl::PointCloud<pcl::PointXYZI>;
 
 int main() {
   // filesys shit:
   std::string home_dir = getenv("HOME");
-//  std::string sloam_dir = ros::package::getPath("sloam");
+  std::string model_path = home_dir + "/Downloads/darknet21pp_hpc.onnx";
   std::string seq_dir = home_dir + "/repos/lidar-bonnetal/digikittiforest/sequences";
   std::string pcd_dir = seq_dir + "/00/point_clouds/";//"/home/mcamurri/Datasets/";////
   //  std::string pcdfile = pcd_dir + "cloud_1693566299_538213000.pcd";//"1693566415538365.pcd";
-  std::string model_path = home_dir + "/Downloads/darknet21pp_hpc.onnx";   // /logs/squeezenetV2_1_1_30_2k.onnx";
   std::string pcdfile = home_dir + "/bags/1693566424537803.pcd";//"1693566415538365.pcd";
-  std::string tmp_dir = "/tmp/sloam_debug/";
+
+  std::filesystem::path temp_folder_path("/tmp/sloam_debug/");
+  std::string tmp_dir = temp_folder_path.string();
+  std::filesystem::create_directories(temp_folder_path);
+
 
   try {
     seg::Segmentation imgseg(model_path, 15, -16.1,
@@ -118,8 +127,8 @@ int main() {
     CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
 // load cloud
     std::cout << "Loading " << pcdfile << " ... \n";
-    if (pcl::io::loadPCDFile(pcdfile, *cloud) == 0) {
-      std::cout << "Loaded " << cloud->width * cloud->height
+    if (pcl::io::loadPCDFile(pcdfile, *hesaiCloud) == 0) {
+      std::cout << "Loaded " << hesaiCloud->width * hesaiCloud->height
                 << " data points from .pcd" << std::endl;
     } else {
       std::cerr << "Load failed\n";
@@ -127,6 +136,7 @@ int main() {
 
     // organize hesai cloud
     hesaiCloudToOrganizedCloud(*hesaiCloud, cloud);
+    // Check if the cloud is empty
     pcl::io::savePCDFile(tmp_dir + "hesai_in.pcd", *hesaiCloud);
     pcl::io::savePCDFile(tmp_dir + "hesai_org.pcd", *cloud);
     // MAKE MASK IMAGE
@@ -145,7 +155,7 @@ int main() {
 
     // build mask image from network input
     imgseg.runNetwork(net_input, mask_image);
-    maskImgViz(mask_image); // visualize using method above.
+    maskImgViz(mask_image, true); // visualize using method above.
 
     // from sloamNode.cpp SloamNode::runSegmentation
     imgseg.maskCloud(cloud, mask_image, groundCloud, 1, false); // old: 1, f...

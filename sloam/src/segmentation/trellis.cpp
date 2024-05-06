@@ -144,7 +144,7 @@ void Instance::findTrees(const CloudT::Ptr pc,
             if(euclidean_labels.points[row_idx * pc->width + col_idx].label == i){
               PointT p = pc->at(col_idx, row_idx);
               beam->points.push_back(p);
-              std::cerr << "Beam col,row: " << col_idx << "," << row_idx << "\n";
+//              std::cerr << "Beam col,row: " << col_idx << "," << row_idx << "\n";
             }
           }
           // TODO: .yaml this shit.

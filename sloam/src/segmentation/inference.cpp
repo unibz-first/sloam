@@ -458,9 +458,6 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
   std::cerr << "input cloud    w,h,size,is_dense: " <<
                cloud->width << ", " << cloud->height << ", " <<
                cloud->points.size() << ", " << cloud->is_dense << "\n";
-//  std::cerr << "pre outCloud   w,h,size,is_dense: " <<
-//               outCloud->width << ", " << outCloud->height << ", " <<
-//               outCloud->points.size() << ", " << outCloud->is_dense << "\n";
 
   // fill temp2Cloud if organized
   //        if(organized){
@@ -526,8 +523,8 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
 //      std::cout << i << ", " << proj_xs[i] << ", " << proj_ys[i] << "\n";
     valid_point_counter_t2c++;
     } else {
-      opc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] <<
-                 ", nan, nan, nan" << std::endl;
+//      opc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] <<
+//                 ", nan, nan, nan" << std::endl;
     }
   }
   opc_csv.close(); // writes all org_pc coords
@@ -583,8 +580,8 @@ void Segmentation::maskCloud(const Cloud::Ptr cloud,
         ++pt_ctr;
       } else if(organized){
         tempCloud->points.push_back(nan_p);
-        tc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] <<
-                  ", nan, nan, nan" << std::endl;
+//        tc_csv << i << ", " << proj_xs[i] << ", " << proj_ys[i] <<
+//                  ", nan, nan, nan" << std::endl;
         ++nan_ctr;
       }
     } else if(organized){
