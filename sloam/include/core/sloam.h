@@ -33,7 +33,7 @@ struct SloamInput
 {
   SloamInput()
   {
-    groundCloud = CloudT::Ptr(new CloudT());
+    groundCloud = pcl::make_shared<CloudT>(); //new vers.
     // groundKDTree = KDTree::Ptr(new KDTree());
     // allCloud = CloudT::Ptr(new CloudT());
   };
@@ -80,7 +80,7 @@ namespace sloam
                       SE3 &tf);
     // Model estimation
     void projectModels(const SE3 &tf, std::vector<Cylinder> &landmarks, std::vector<Plane> &planes);
-    void computeModels(SloamInput &in, std::vector<Cylinder> &landmarks, std::vector<Plane> &planes);
+    void computeModels(const SloamInput &in, std::vector<Cylinder> &landmarks, std::vector<Plane> &planes);
     void binGroundPoints(const SE3 pose, const VectorType &points, boost::multi_array<VectorType, 2> &scgf);
     // Data Association
     template <typename T>

@@ -215,7 +215,8 @@ namespace sloam
     }
   }
 
-  visualization_msgs::MarkerArray vizGroundModel(const std::vector<Plane> &gplanes, const std::string &frame_id, int idx)
+  visualization_msgs::MarkerArray vizGroundModel(const std::vector<Plane> &gplanes,
+                                                 const std::string &frame_id, int idx)
   {
 
     visualization_msgs::MarkerArray groundModels;

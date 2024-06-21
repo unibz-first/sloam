@@ -36,11 +36,13 @@ namespace sloam
     using Ptr = boost::shared_ptr<SLOAMNode>;
     using ConstPtr = boost::shared_ptr<const SLOAMNode>;
     bool run(const SE3 initialGuess, const SE3 prevKeyPose, CloudT::Ptr cloud, ros::Time stamp, SE3 &outPose);
-    bool run(const SE3 initialGuess, const SE3 prevKeyPose, HesaiPointCloud::Ptr cloud, ros::Time stamp, SE3 &outPose);
+    int lidarW() const {return lidar_w;}
+    int lidarH() const {return lidar_h;}
 
   private:
     void initParams_();
     CloudT::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
+    void maskImgViz(cv::Mat& mask_img) const;
     void publishMap_(const ros::Time stamp);
     /*
     * --------------- Visualization ------------------
@@ -63,6 +65,10 @@ namespace sloam
     ros::Publisher pubObsTreeModel_;
     ros::Publisher pubMapGroundModel_;
     ros::Publisher pubObsGroundModel_;
+    image_transport::ImageTransport it;
+    image_transport::Publisher maskPub_;
+    ros::Publisher groundCloudPub_;
+    ros::Publisher treeCloudPub_;
 
     // Transform
     tf2_ros::Buffer tf_buffer_;
@@ -76,6 +82,9 @@ namespace sloam
     Instance graphDetector_;
     MapManager semanticMap_;
     FeatureModelParams fmParams_;
+    int lidar_w = 2048;
+    int lidar_h = 64;
+    cv::Mat maskViz_;
 
     std::vector<SE3> trajectory;
     bool firstScan_;

@@ -66,6 +66,8 @@ public:
 
   bool computeVertexProperties(CloudT::Ptr &pc, Slash& filteredPoints, PointT& median_point, Scalar& radius);
   TreeVertex computeTreeVertex(CloudT::Ptr beam, int label);
+  void computeClusterDistances(const CloudT::Ptr pc,
+                                         const std::vector<pcl::PointIndices> &label_indices);
   void findClusters(const CloudT::Ptr pc,
       pcl::PointCloud<pcl::Label>& euclidean_labels, std::vector<pcl::PointIndices>& label_indices);
 

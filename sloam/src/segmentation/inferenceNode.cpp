@@ -10,6 +10,8 @@
 #include <definitions.h>
 #include <trellis.h>
 #include <serialization.h>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
 
 class SegNode
 {
@@ -20,6 +22,8 @@ private:
   void SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg);
   CloudT::Ptr trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks);
   boost::shared_ptr<seg::Segmentation> segmentator_ = nullptr;
+  void maskImgViz(cv::Mat& mask_img) const;
+
 
   ros::NodeHandle nh_;
   ros::Subscriber cloudSub_;
@@ -28,11 +32,24 @@ private:
   ros::Publisher groundPub_;
   ros::Time prevStamp;
   Instance graphDetector_;
+  image_transport::ImageTransport it;
+  image_transport::Publisher maskPub_;
+  cv::Mat maskViz_;
 };
 
-SegNode::SegNode(const ros::NodeHandle &nh) : nh_(nh)
-{
+void SegNode::maskImgViz(cv::Mat& mask_img) const {
+  cv::MatIterator_<uchar> it;
+  // create visible mask image
+  for (it = mask_img.begin<uchar>(); it != mask_img.end<uchar>(); ++it) {
+    if ((*it) == 1) {
+      (*it) = 127;
+    }
+  }
+}
 
+SegNode::SegNode(const ros::NodeHandle &nh)
+    : nh_(nh), it(nh_), maskPub_(it.advertise("segmentation/mask", 1))
+{
   std::string cloud_topic;
   nh_.param<std::string>("cloud_topic", cloud_topic, "/os_cloud_node/cloud_undistort");
   cloudSub_ = nh_.subscribe(cloud_topic, 10, &SegNode::SegCb_, this);
@@ -49,7 +66,8 @@ SegNode::SegNode(const ros::NodeHandle &nh) : nh_(nh)
   int lidar_h = nh_.param("seg_lidar_h", 64);
   bool do_destagger = nh_.param("do_destagger", true);
 
-  auto temp_seg = boost::make_shared<seg::Segmentation>(modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
+  auto temp_seg = boost::make_shared<seg::Segmentation>(
+        modelFilepath, fov, -fov, lidar_w, lidar_h, 1, do_destagger);
   segmentator_ = std::move(temp_seg);
   prevStamp = ros::Time::now();
 
@@ -73,7 +91,7 @@ SegNode::SegNode(const ros::NodeHandle &nh) : nh_(nh)
 
 CloudT::Ptr SegNode::trellisCloud(const std::vector<std::vector<TreeVertex>> &landmarks)
 {
-  CloudT::Ptr vtxCloud = CloudT::Ptr(new CloudT);
+  CloudT::Ptr vtxCloud = pcl::make_shared<CloudT>();
   std::vector<float> color_values((int)landmarks.size());
   std::iota(std::begin(color_values), std::end(color_values), 1);
   std::random_device rd;
@@ -104,20 +122,28 @@ void SegNode::SegCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
   if ((prevStamp - cloudMsg->header.stamp).toSec() < 1.0)
     return;
 
-  CloudT::Ptr cloud(new CloudT);
+  CloudT::Ptr cloud = pcl::make_shared<CloudT>();
   pcl::fromROSMsg(*cloudMsg, *cloud);
   pcl_conversions::toPCL(ros::Time::now(), cloud->header.stamp);
 
   // RUN SEGMENTATION
   cv::Mat rMask = cv::Mat::zeros(cloudMsg->height, cloudMsg->width, CV_8U);
   segmentator_->run(cloud, rMask);
+
+  rMask.copyTo(maskViz_);
+  maskImgViz(maskViz_);
+  auto maskMsg_ = cv_bridge::CvImage(cloudMsg->header, "mono8", maskViz_).toImageMsg();
+  maskPub_.publish(maskMsg_);
+
+
   // cv::imwrite("mask.jpg", rMask);
 
-  CloudT::Ptr groundCloud(new CloudT());
-  segmentator_->maskCloud(cloud, rMask, groundCloud, 1);
+  CloudT::Ptr groundCloud = pcl::make_shared<CloudT>();
+  segmentator_->maskCloud(cloud, rMask, groundCloud, 1, false);
 
-  CloudT::Ptr treeCloud(new CloudT);
+  CloudT::Ptr treeCloud = pcl::make_shared<CloudT>();
   segmentator_->maskCloud(cloud, rMask, treeCloud, 255, true);
+
 
   std::vector<std::vector<TreeVertex>> landmarks;
   graphDetector_.computeGraph(cloud, treeCloud, landmarks);

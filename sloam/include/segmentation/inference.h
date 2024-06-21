@@ -4,6 +4,7 @@
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
+#include <pcl/filters/filter.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
@@ -49,18 +50,6 @@ struct Timer{
     }
 };
 
-// for OpenCV throughput of unstructured/incomplete Hesai Pointclouds
-struct HesaiImages {
-    cv::Mat range_;
-    cv::Mat intensity_;
-    cv::Mat range_precise_;
-    cv::Mat range_resized_;
-    cv::Mat range_resized_float_;
-    cv::Mat range_resized_show_;
-    cv::Mat mask_resized_; // 64x2058
-    cv::Mat mask_; // hesai 32x2000
-};
-
 class Segmentation {
  public:
     explicit Segmentation(const std::string modelFilePath,
@@ -79,11 +68,10 @@ class Segmentation {
 
     void runERF(cv::Mat& rImg, cv::Mat& maskImg);
     void run(const Cloud::Ptr cloud, cv::Mat& maskImg);
-    void run(const HesaiPointCloud::Ptr cloud, cv::Mat& maskImg,
-             CloudT::Ptr &padded_cloud);
-
+    void hesaiCloudToOrganizedCloud(const HesaiPointCloud& cloud,
+                                    CloudT::Ptr& org_cloud) const;
     void maskCloud(const Cloud::Ptr cloud, cv::Mat mask, Cloud::Ptr& outCloud,
-                   unsigned char val, bool dense = false);
+                   unsigned char val, bool organised = false);
     void speedTest(const Cloud::Ptr cloud, size_t numTests);
     NetworkInput _doProjection(const std::vector<float>& scan,
                                const uint32_t& num_points,
@@ -97,19 +85,12 @@ class Segmentation {
     void cloudToCloudVector(const Cloud::Ptr& cloud,
                             std::vector<float>& cloudVector) const;
 
-    HesaiImages _hesaiImages;
-    void initializeImages();
-
-    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
-                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;
-    NetworkInput _doHesaiProjection(const HesaiImages& hesaiImages,
-                                    std::vector<float> *rgs = nullptr,
-                                    std::vector<size_t> *xps = nullptr,
-                                    std::vector<size_t> *yps = nullptr);
+/*    void hesaiPointcloudToImage(const HesaiPointCloud& cloud,
+                                HesaiImages& hesaiImages, CloudT::Ptr &padded_cloud) const;*/
 
 private:
 
-
+    int countValidPoints(const Cloud::Ptr cloud);
     void _argmax(const float *in, cv::Mat& maskImg);
 
     void _preProcessRange(const cv::Mat& img, cv::Mat& pImg, float maxDist);
@@ -134,6 +115,8 @@ private:
     Timer _timer;
     bool _verbose = true;
 
+    std::vector<float> _rgs;
+    std::vector<size_t> _xps, _yps; // replacements for proj_xs, proj_ys
     std::vector<float> proj_xs; // store a copy in original order
     std::vector<float> proj_ys;
 
@@ -145,8 +128,6 @@ private:
     int _img_d;
     bool _do_destagger;
 public:
-    void cloudToNetworkInput(const HesaiPointCloud::Ptr& cloud,
-                             NetworkInput& ni, CloudT::Ptr& padded_cloud);
     void cloudToNetworkInput(const CloudT::Ptr& cloud, NetworkInput& ni);
     void runNetwork(NetworkInput &ni, cv::Mat& maskImg);
 };

@@ -10,6 +10,7 @@
 #include <definitions.h>
 #include <sloamNode.h>
 #include "../inputNode.hpp"
+#include "../helpers/hesai_point_types.h"
 
 
 
@@ -64,7 +65,10 @@ void InputManager::OdomCb_(const nav_msgs::OdometryConstPtr &odom_msg)
         auto transform_cam_body = tf_buffer_.lookupTransform(
             odom_msg->child_frame_id, robot_frame_id_, ros::Time(0));
         SE3 cam_body_tf(tf2::transformToEigen(transform_cam_body).matrix().cast<double>());
-        odom = odom * cam_body_tf;
+        // I think the following is wrong, it should be:
+        odom = odom * cam_body_tf.inverse();
+        //odom = odom * cam_body_tf;
+
     }
     catch (tf2::TransformException &ex)
     {
@@ -88,10 +92,10 @@ bool InputManager::Run()
     if (odomQueue_.empty() || pcQueue_.empty())
         return false;
 
-    // ROS_DEBUG_THROTTLE(5, "First odom stamp: %f", odomQueue_.front().stamp.toSec());
-    // ROS_DEBUG_THROTTLE(5, "First cloud stamp: %f", pcQueue_.front()->header.stamp.toSec());
-    // ROS_DEBUG_THROTTLE(5, "Last odom stamp: %f", odomQueue_.back().stamp.toSec());
-    // ROS_DEBUG_THROTTLE(5, "Last cloud stamp: %f", pcQueue_.back()->header.stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "First odom stamp: %f", odomQueue_.front().stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "First cloud stamp: %f", pcQueue_.front()->header.stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "Last odom stamp: %f", odomQueue_.back().stamp.toSec());
+     ROS_DEBUG_THROTTLE(5, "Last cloud stamp: %f", pcQueue_.back()->header.stamp.toSec());
 
     for (auto i = 0; i < odomQueue_.size(); ++i)
     {
@@ -132,17 +136,84 @@ bool InputManager::Run()
     return false;
 }
 
+int InputManager::FindHesaiCloud(const ros::Time stamp,
+                                  CloudT::Ptr &cloud_out)
+{
+  HesaiPointCloud::Ptr hesai_cloud = pcl::make_shared<HesaiPointCloud>();
+  // TODO: change templating to CloudT instead of PointT?
+    // cloud is not dense because it might contain invalid points
+  if (cloud_out.get() == nullptr) {
+      std::cerr << "no cloud_out CloudT::Ptr +++++++++++++++++++00\n";
+      cloud_out = pcl::make_shared<CloudT>();
+  }
+  cloud_out->is_dense = false;
+  cloud_out->header = hesai_cloud->header;
+
+//  std::cerr << "++++++++++++++++++++++++++++++++++++0\n";
+  int r = FindPC(stamp, hesai_cloud);
+//  std::cerr << "++++++++++++++++++++++++++++++++++++1\n";
+  std::cerr << r << " returned\n";
+  if(r < CLOUD_FOUND) {
+      std::cerr << "++++++++++++++++++++++++++++++++++++2\n";
+      std::cerr << r << " is return\n";
+    return r;
+  }
+  std::cerr << r << " means CLOUD_FOUND!!!!!!!!!!!!!!!\n";
+
+  size_t ctr = 0;
+  size_t null_ctr = 0;
+  std::cerr << sloam_->lidarH() << ", " << sloam_->lidarW() << "= [h,w] \n";
+  cloud_out->width = sloam_->lidarW();
+  cloud_out->height = sloam_->lidarH();
+  PointT p_invalid;
+  p_invalid.x = 0.0;//std::numeric_limits<float>::quiet_NaN();
+  p_invalid.y = p_invalid.x;
+  p_invalid.z = p_invalid.x;
+  p_invalid.intensity = p_invalid.x;
+  for (int i = 0; i < sloam_->lidarW(); i++) {
+    for (int j = 0; j < sloam_->lidarH(); j++) {
+      if (hesai_cloud->points[ctr].ring == j) {
+        PointT p;
+        pcl::copyPoint(hesai_cloud->points[ctr], p);
+        std::cerr << "cloud_out->points.size: " << cloud_out->points.size() << "\n";
+        std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size() << "\n";
+
+        std::cerr << p.x << ", " << p.y << ", " << p.z << ", " << p.intensity
+                  << ", " << ctr << ", " << i << ", " << j
+                  << "= p[x,y,z,intensity,counter,i,j] \n";
+        // std::cerr << "index out of range: " << ctr << "\n";
+        std::cerr << "cloud_out->points.size: " << cloud_out->points.size()
+                  << "\n";
+        std::cerr << "hesai_cloud->points.size: " << hesai_cloud->points.size()
+                  << "\n";
+
+        cloud_out->points.push_back(p);
+        ctr++;
+      } else {
+        // add an invalid point where there is a missing "pixel"
+        cloud_out->points.push_back(p_invalid);
+        null_ctr++;
+      }
+
+      std::cerr << "null_ctr = " << null_ctr << "\n";
+      size_t null_check = cloud_out->points.size() - hesai_cloud->points.size();
+      std::cerr << "cloud_out - hesai_cloud = "
+                << cloud_out->points.size() - hesai_cloud->points.size()
+                << "\n";
+      std::cerr << "null_check = " << null_check << "\n";
+    }
+  }
+  return r;
+}
+
 bool InputManager::callSLOAM(SE3 relativeMotion, ros::Time stamp)
 {
-    HesaiPointCloud::Ptr cloud_hesai;
-    CloudT::Ptr cloud_xyzi;
+    CloudT::Ptr cloud = pcl::make_shared<CloudT>();
     int r;
     if(use_hesai_){
-        cloud_hesai = boost::make_shared<HesaiPointCloud>();
-        r = FindPC(stamp, cloud_hesai);
+        r = FindHesaiCloud(stamp, cloud);
     } else {
-        cloud_xyzi = boost::make_shared<CloudT>();
-        r = FindPC(stamp, cloud_xyzi);
+        r = FindPC(stamp, cloud);
     }
 
     if (r == CLOUD_FOUND)
@@ -152,15 +223,11 @@ bool InputManager::callSLOAM(SE3 relativeMotion, ros::Time stamp)
         SE3 prevKeyPose = firstOdom_ ? SE3() : keyPoses_[keyPoses_.size() - 1];
 
         bool success;
-        if(use_hesai_){
-          pcl_conversions::toPCL(stamp, cloud_hesai->header.stamp);
-          success = sloam_->run(relativeMotion, prevKeyPose, cloud_hesai, stamp,
-                                keyPose);
-        } else {
-          pcl_conversions::toPCL(stamp, cloud_xyzi->header.stamp);
-          success = sloam_->run(relativeMotion, prevKeyPose, cloud_xyzi, stamp,
-                                keyPose);
-        }
+
+        pcl_conversions::toPCL(stamp, cloud->header.stamp);
+        success = sloam_->run(relativeMotion, prevKeyPose, cloud, stamp,
+                              keyPose);
+
         if (success) {
           keyPoses_.push_back(keyPose);
           return true;
@@ -186,8 +253,10 @@ void InputManager::PCCb_(const sensor_msgs::PointCloud2ConstPtr &cloudMsg)
 
 void InputManager::Odom2SlamTf()
 {
-    if (keyPoses_.size() == 0)
+    if (keyPoses_.size() == 0){
+        std::cerr << "keyPoses_ is empty\n";
         return;
+    }
 
     auto slam_pose = keyPoses_[keyPoses_.size()-1];
     //vio_odom is odomTb, slam_pose which is slamTb
@@ -199,7 +268,9 @@ void InputManager::Odom2SlamTf()
 
     std::string parent_frame_id = map_frame_id_;
     std::string child_frame_id = odom_frame_id_;
-    PublishOdomAsTf(sloam::toRosOdom_(odom2slam, map_frame_id_, latestOdom.stamp), parent_frame_id, child_frame_id);
+    // **************************************************************************
+    PublishOdomAsTf(sloam::toRosOdom_(odom2slam, map_frame_id_, latestOdom.stamp),
+                    parent_frame_id, child_frame_id);
     // publish pose AFTER TF so that the visualization looks correct
     pubPose_.publish(sloam::toRosOdom_(slam_pose, map_frame_id_, latestOdom.stamp));
 }
@@ -214,11 +285,21 @@ void InputManager::PublishOdomAsTf(const nav_msgs::Odometry &odom_msg,
     // odom_msg.header.frame_id
     tf.header.frame_id = parent_frame_id;
     tf.child_frame_id = child_frame_id;
+    ROS_INFO_STREAM("odom msg parent, child: " << parent_frame_id << ", " << child_frame_id);
     tf.transform.translation.x = odom_msg.pose.pose.position.x;
     tf.transform.translation.y = odom_msg.pose.pose.position.y;
     tf.transform.translation.z = odom_msg.pose.pose.position.z;
     tf.transform.rotation = odom_msg.pose.pose.orientation;
     broadcaster_.sendTransform(tf);
+    // TODO: remove later but this is a great 1-line print format for future
+    ROS_INFO("Transform: translation = [%f, %f, %f], rotation = [%f, %f, %f, %f]",
+             tf.transform.translation.x,
+             tf.transform.translation.y,
+             tf.transform.translation.z,
+             tf.transform.rotation.x,
+             tf.transform.rotation.y,
+             tf.transform.rotation.z,
+             tf.transform.rotation.w);
 }
 
 int main(int argc, char **argv)

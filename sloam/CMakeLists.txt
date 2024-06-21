@@ -24,6 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   tf
   roscpp
+  lidar_undistortion_ros
 )
 
 find_package(Boost REQUIRED system serialization)
